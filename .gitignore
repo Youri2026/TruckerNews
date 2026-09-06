@@ -1,0 +1,8 @@
+telegram.json
+config.json
+*.log
+news-progress.json
+news-progress-hist.json
+*-seen.json
+__pycache__/
+*.pyc
