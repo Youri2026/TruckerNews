@@ -164,13 +164,21 @@ YT_WORKDIR = "/tmp/yt_news"
 # код. Если файла нет или он битый — работаем на списках выше (YT_CHANNELS
 # по умолчанию, все ленты включены).
 NEWS_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
-ЛЕНТЫ_ВКЛ = {"iran-tehrantimes": True, "iran-mehr": True,
-             "almasirah": True, "ei": True, "strelkov": True}
+# Встроенные ленты со СВОИМ разбором (спец-логика) — только вкл/выкл.
+ЛЕНТЫ_ВКЛ = {"iran-tehrantimes": True, "iran-mehr": True, "almasirah": True}
+# Телеграм-каналы и универсальные RSS-ленты — их можно добавлять/убирать
+# с пульта (автор 2026-09-06). По умолчанию — Стрелков и Electronic Intifada.
+ТЕЛЕГРАМ = [{"имя": "Стрелков (Гиркин)", "url": "https://t.me/s/strelkovii",
+             "prefix": "strelkov", "вкл": True}]
+RSS_ЛЕНТЫ = [{"имя": "The Electronic Intifada",
+              "url": "https://electronicintifada.net/rss.xml",
+              "prefix": "ei", "вкл": True}]
 
 
 def _применить_конфиг():
-    """Прочитать пультовый конфиг и перекрыть им YT_CHANNELS и флаги лент."""
-    global YT_CHANNELS, ЛЕНТЫ_ВКЛ
+    """Прочитать пультовый конфиг: ютуб-каналы, флаги встроенных лент,
+    списки телеграм-каналов и RSS-лент."""
+    global YT_CHANNELS, ЛЕНТЫ_ВКЛ, ТЕЛЕГРАМ, RSS_ЛЕНТЫ
     try:
         cfg = json.load(open(NEWS_CONFIG, encoding="utf-8"))
     except Exception:
@@ -190,6 +198,10 @@ def _применить_конфиг():
     if каналы:
         YT_CHANNELS = каналы
     ЛЕНТЫ_ВКЛ.update(cfg.get("ленты_вкл", {}))
+    if "телеграм" in cfg:
+        ТЕЛЕГРАМ = cfg["телеграм"]
+    if "rss" in cfg:
+        RSS_ЛЕНТЫ = cfg["rss"]
 
 # Пересказ делает T-pro (Т-Банк, 32B) на DGX Spark — чистый русский без чужих языков.
 # Пересказ — T-Pro, сжатая в 4 бита (int4), на 5090. Переехала со Спарка
@@ -388,13 +400,14 @@ def almasirah_body(article_html):
     return " ".join(clean)[:4000]
 
 
-def ei_links():
-    """[(url, метка), ...] — свежие статьи The Electronic Intifada."""
+def rss_links(feed_url, max_n=EI_MAX):
+    """[(url, метка), ...] — свежие статьи ЛЮБОЙ RSS-ленты (универсально,
+    для добавляемых с пульта лент; автор 2026-09-06)."""
     out, метки = [], set()
     try:
-        x = fetch(EI_FEED)
+        x = fetch(feed_url)
     except Exception as e:
-        print(f"Electronic Intifada: лента не скачалась ({e})",
+        print(f"RSS {feed_url[:45]}: лента не скачалась ({e})",
               file=sys.stderr)
         return out
     for кусок in re.findall(r"<item>(.*?)</item>", x, re.S):
@@ -408,7 +421,7 @@ def ei_links():
             continue
         метки.add(метка)
         out.append((url, метка))
-        if len(out) >= EI_MAX:
+        if len(out) >= max_n:
             break
     return out
 
@@ -1333,27 +1346,30 @@ def collect_new():
         в_сводку.append(("Аль-Масира", текст))
         ид_сводки.append(iid)
 
-    # --- The Electronic Intifada (Газа) — автор 2026-09-04 ---
-    ei_itms = []
-    for url, slug in (ei_links() if ЛЕНТЫ_ВКЛ.get("ei", True) else []):
-        iid = "ei:" + slug
-        if iid in seen:
+    # --- пользовательские RSS-ленты (добавляются с пульта, автор 2026-09-06) ---
+    for лента in RSS_ЛЕНТЫ:
+        if not лента.get("вкл", True):
             continue
-        print(f"[Electronic Intifada новая] {slug[:50]}", file=sys.stderr)
-        try:
-            h = fetch_insecure(url)
-            body = ei_body(h)
-            if len(body) < 200:
+        rss_itms = []
+        for url, slug in rss_links(лента["url"]):
+            iid = лента["prefix"] + ":" + slug
+            if iid in seen:
                 continue
-            plain = ask_plain(article_title(h), body)
-            if not plain:
-                continue
-            ei_itms.append((guard_text(plain), iid))
-        except Exception as e:
-            print(f"  пропуск ({e})", file=sys.stderr)
-    for текст, iid in ei_itms:
-        в_сводку.append(("The Electronic Intifada", текст))
-        ид_сводки.append(iid)
+            print(f"[{лента['имя']} новая] {slug[:50]}", file=sys.stderr)
+            try:
+                h = fetch_insecure(url)
+                body = ei_body(h)
+                if len(body) < 200:
+                    continue
+                plain = ask_plain(article_title(h), body)
+                if not plain:
+                    continue
+                rss_itms.append((guard_text(plain), iid))
+            except Exception as e:
+                print(f"  пропуск ({e})", file=sys.stderr)
+        for текст, iid in rss_itms:
+            в_сводку.append((лента["имя"], текст))
+            ид_сводки.append(iid)
 
     # --- всё собранное сводим в один дайджест ---
     if в_сводку:
@@ -1372,13 +1388,14 @@ def collect_new():
             for (источник, текст), iid in zip(в_сводку, ид_сводки):
                 segments.append((текст, iid))
 
-    # --- телеграм-каналы ---
-    for name, url, n, intro, prefix in (
-        [("Стрелков", STRELKOV_URL, STRELKOV_N, INTRO_STRELKOV, "strelkov")]
-        if ЛЕНТЫ_ВКЛ.get("strelkov", True) else []
-    ):
+    # --- телеграм-каналы (добавляются с пульта, автор 2026-09-06) ---
+    for канал in ТЕЛЕГРАМ:
+        if not канал.get("вкл", True):
+            continue
+        name = канал["имя"]
+        prefix = канал["prefix"]
         try:
-            posts = channel_posts(url, n)
+            posts = channel_posts(канал["url"], канал.get("n", STRELKOV_N))
         except Exception as e:
             print(f"{name}: не скачался ({e})", file=sys.stderr)
             posts = []
@@ -1398,7 +1415,7 @@ def collect_new():
             except Exception as e:
                 print(f"  пропуск ({e})", file=sys.stderr)
         if ch_items:
-            segments.append((intro, None))
+            segments.append((f"Новости от канала {name}.", None))
             segments.extend(ch_items)
 
     return segments, seen

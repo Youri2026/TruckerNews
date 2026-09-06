@@ -97,5 +97,21 @@
   "almasirah": true,
   "ei": true,
   "strelkov": true
- }
+ },
+ "телеграм": [
+  {
+   "имя": "Стрелков (Гиркин)",
+   "url": "https://t.me/s/strelkovii",
+   "prefix": "strelkov",
+   "вкл": true
+  }
+ ],
+ "rss": [
+  {
+   "имя": "The Electronic Intifada",
+   "url": "https://electronicintifada.net/rss.xml",
+   "prefix": "ei",
+   "вкл": true
+  }
+ ]
 }

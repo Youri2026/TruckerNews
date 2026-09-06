@@ -23,9 +23,6 @@ import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-# Впишите адрес, на котором слушать пульт: свой Tailscale/LAN-адрес,
-# либо 127.0.0.1 (только локально). НЕ выставляйте в интернет — пульт
-# без пароля.
 АДРЕС = "127.0.0.1"
 ПОРТ = 8091
 КОНФИГ = os.path.expanduser("~/news-config.json")
@@ -35,12 +32,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ДНИ = [("1", "Пн"), ("2", "Вт"), ("3", "Ср"), ("4", "Чт"),
        ("5", "Пт"), ("6", "Сб"), ("0", "Вс")]
+# Встроенные ленты со своим разбором — только вкл/выкл (не удаляются).
 ЛЕНТЫ_ИМЕНА = {
     "iran-tehrantimes": "Тегеран Таймс (Иран)",
     "iran-mehr": "Мехр (Иран)",
     "almasirah": "Аль-Масира (Йемен)",
-    "ei": "The Electronic Intifada (Газа)",
-    "strelkov": "Стрелков (Гиркин)",
 }
 
 СТИЛЬ = """
@@ -347,6 +343,56 @@ def страница(итог=None):
             f"{'вкл' if вкл else 'выкл'}</button></form>"
             "</div>")
 
+    # ── Телеграм-каналы (добавляемые) ──
+    к.append("<div class='раздел'>Телеграм-каналы</div>")
+    for i, c in enumerate(cfg.get("телеграм", [])):
+        вкл = c.get("вкл", True)
+        к.append(
+            "<div class='пара'>"
+            f"<div class='строка {'живая' if вкл else 'тускло'}'>"
+            f"{'🟢' if вкл else '⚪'} {html.escape(c.get('имя', '?'))}</div>"
+            f"<form method='post' action='/tg-toggle'>"
+            f"<input type='hidden' name='i' value='{i}'>"
+            f"<button class='тумблер {'вкл' if вкл else 'выкл'}'>"
+            f"{'вкл' if вкл else 'выкл'}</button></form>"
+            f"<form method='post' action='/tg-del' "
+            "onsubmit=\"return confirm('Убрать телеграм-канал?')\">"
+            f"<input type='hidden' name='i' value='{i}'>"
+            f"<button class='крестик'>✕</button></form>"
+            "</div>")
+    к.append("<div class='когда' style='margin-top:10px'>Добавить "
+             "телеграм-канал:</div>")
+    к.append("<form method='post' action='/tg-add'>"
+             "<input type='text' name='имя' placeholder='Имя (например Монтян)'>"
+             "<input type='text' name='url' "
+             "placeholder='Ссылка t.me/канал или @канал'>"
+             "<button class='кнопка'>Добавить телеграм-канал</button></form>")
+
+    # ── RSS-ленты (добавляемые) ──
+    к.append("<div class='раздел'>RSS-ленты (сайты)</div>")
+    for i, c in enumerate(cfg.get("rss", [])):
+        вкл = c.get("вкл", True)
+        к.append(
+            "<div class='пара'>"
+            f"<div class='строка {'живая' if вкл else 'тускло'}'>"
+            f"{'🟢' if вкл else '⚪'} {html.escape(c.get('имя', '?'))}</div>"
+            f"<form method='post' action='/rss-toggle'>"
+            f"<input type='hidden' name='i' value='{i}'>"
+            f"<button class='тумблер {'вкл' if вкл else 'выкл'}'>"
+            f"{'вкл' if вкл else 'выкл'}</button></form>"
+            f"<form method='post' action='/rss-del' "
+            "onsubmit=\"return confirm('Убрать RSS-ленту?')\">"
+            f"<input type='hidden' name='i' value='{i}'>"
+            f"<button class='крестик'>✕</button></form>"
+            "</div>")
+    к.append("<div class='когда' style='margin-top:10px'>Добавить RSS-ленту "
+             "(адрес ленты сайта, обычно кончается на /rss или .xml):</div>")
+    к.append("<form method='post' action='/rss-add'>"
+             "<input type='text' name='имя' placeholder='Имя (например РИА)'>"
+             "<input type='text' name='url' "
+             "placeholder='Адрес RSS-ленты (…/rss.xml)'>"
+             "<button class='кнопка'>Добавить RSS-ленту</button></form>")
+
     # ── Запустить выпуск сейчас ──
     к.append("<div class='раздел'>Проверка</div>")
     к.append("<form method='post' action='/run-now'>"
@@ -465,6 +511,78 @@ def тумблер_ленты(поля):
     return f"«{ЛЕНТЫ_ИМЕНА[ключ]}» — {'вкл' if л[ключ] else 'выкл'}"
 
 
+# ── Телеграм-каналы и RSS-ленты (добавляемые, автор 2026-09-06) ────
+def _префикс_текст(осн, занятые):
+    осн = re.sub(r"[^a-z0-9]", "", осн.lower())[:16] or "istochnik"
+    p, n = осн, 1
+    while p in занятые:
+        n += 1
+        p = f"{осн}{n}"
+    return p
+
+
+def добавить_телеграм(поля):
+    имя = (поля.get("имя", [""])[0]).strip()
+    сырьё = (поля.get("url", [""])[0]).strip()
+    if not имя:
+        return "впиши имя канала"
+    # вытаскиваем @имя-канала из t.me/канал, t.me/s/канал, @канал или голого имени
+    m = re.search(r"(?:t\.me/(?:s/)?|@)?([A-Za-z0-9_]+)/?$", сырьё)
+    ник = m.group(1) if m else ""
+    if not ник:
+        return "впиши ссылку t.me/канал или @канал"
+    url = f"https://t.me/s/{ник}"
+    cfg = читать_конфиг()
+    for c in cfg.get("телеграм", []):
+        if c.get("url", "").rstrip("/").endswith("/" + ник):
+            return f"канал уже в списке — «{c.get('имя','?')}»"
+    занятые = {c.get("prefix") for c in cfg.get("телеграм", [])}
+    cfg.setdefault("телеграм", []).append(
+        {"имя": имя, "url": url,
+         "prefix": _префикс_текст(ник, занятые), "вкл": True})
+    писать_конфиг(cfg)
+    return f"телеграм-канал «{имя}» добавлен"
+
+
+def добавить_rss(поля):
+    имя = (поля.get("имя", [""])[0]).strip()
+    url = (поля.get("url", [""])[0]).strip()
+    if not имя or not re.match(r"https?://", url):
+        return "нужны имя и адрес RSS-ленты (начинается с http)"
+    cfg = читать_конфиг()
+    for c in cfg.get("rss", []):
+        if c.get("url") == url:
+            return f"лента уже в списке — «{c.get('имя','?')}»"
+    занятые = {c.get("prefix") for c in cfg.get("rss", [])}
+    осн = (re.search(r"https?://(?:www\.)?([a-z0-9]+)", url.lower())
+           or [None, имя])[1]
+    cfg.setdefault("rss", []).append(
+        {"имя": имя, "url": url,
+         "prefix": _префикс_текст(осн, занятые), "вкл": True})
+    писать_конфиг(cfg)
+    return f"RSS-лента «{имя}» добавлена"
+
+
+def _список_действие(поля, ключ_списка, действие):
+    """Общая логика удалить/тумблер для списков «телеграм» и «rss»."""
+    try:
+        i = int(поля.get("i", ["-1"])[0])
+    except Exception:
+        return "не выбрано"
+    cfg = читать_конфиг()
+    сп = cfg.get(ключ_списка, [])
+    if not (0 <= i < len(сп)):
+        return "не найдено"
+    имя = сп[i].get("имя", "?")
+    if действие == "del":
+        del сп[i]
+        писать_конфиг(cfg)
+        return f"«{имя}» удалён"
+    сп[i]["вкл"] = not сп[i].get("вкл", True)
+    писать_конфиг(cfg)
+    return f"«{имя}» — {'вкл' if сп[i]['вкл'] else 'выкл'}"
+
+
 def запустить_сейчас():
     try:
         лог = open("/home/user/digest-news-en-ru.log", "a")
@@ -507,6 +625,18 @@ class Пульт(BaseHTTPRequestHandler):
             итог = макс_канала(поля)
         elif путь == "/lenta-toggle":
             итог = тумблер_ленты(поля)
+        elif путь == "/tg-add":
+            итог = добавить_телеграм(поля)
+        elif путь == "/tg-del":
+            итог = _список_действие(поля, "телеграм", "del")
+        elif путь == "/tg-toggle":
+            итог = _список_действие(поля, "телеграм", "toggle")
+        elif путь == "/rss-add":
+            итог = добавить_rss(поля)
+        elif путь == "/rss-del":
+            итог = _список_действие(поля, "rss", "del")
+        elif путь == "/rss-toggle":
+            итог = _список_действие(поля, "rss", "toggle")
         elif путь == "/run-now":
             итог = запустить_сейчас()
         else:
