@@ -54,6 +54,24 @@ reading while driving.*
 - 🌍 **Двуязычный (en-ru)** — берёт и англо-, и русскоязычные источники,
   пересказ на русском.
 
+## Как выглядит пульт / Screenshots
+
+Веб-пульт настроек — открывается в браузере телефона прямо из кабины.
+
+| | |
+|---|---|
+| ![Расписание и ход выпуска](pult-1-raspisanie.jpg) | ![Ютуб-каналы](pult-2-youtube.jpg) |
+| **Ход выпуска и расписание** — когда собран последний выпуск, дни недели и часы выхода. | **Ютуб-каналы** — включить/выключить, удалить, задать сколько последних роликов брать. |
+| ![Добавить ютуб-канал](pult-3-youtube-dobavit.jpg) | ![Текстовые и RSS-ленты](pult-4-lenty.jpg) |
+| **Добавление ютуб-канала** — имя и ссылка, одним касанием. | **Ленты** — текстовые (Аль-Масира) и добавляемые RSS-ленты (Electronic Intifada, Тегеран Таймс, Мехр). |
+| ![Телеграм-каналы и запуск](pult-5-telegram.jpg) | ![Выпуск в Telegram](vypusk-v-telegram.jpg) |
+| **Телеграм-каналы и «Собрать сейчас»** — добавить канал автора, запустить выпуск вручную. | **Готовый выпуск в Telegram** — голосовые приходят и играют подряд, руки на руле. |
+
+*The settings panel opens in the phone browser, right from the cab: release
+progress and schedule, YouTube channels with per-channel limits, text/RSS
+feeds, Telegram channels, a manual "build now" button — and the finished
+digest arriving as back-to-back voice messages in Telegram.*
+
 ## Как это устроено / How it works
 
 ```
