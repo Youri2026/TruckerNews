@@ -273,6 +273,22 @@ chat_id. Then fill in the settings below.*
    python3 remote-news.py     # веб-пульт настроек, по умолчанию порт 8091
    ```
 
+## Не получается сам? / Stuck?
+
+Если технические шаги кажутся сложными — не беда. Поставь себе
+**[Claude Desktop](https://claude.ai/download)** и открой этот проект в нём.
+С моделью **Opus 4.8** можно прямо словами, по-русски, попросить помочь:
+разобрать код, поставить нужные программы и **подогнать проект под твоё
+железо** (другая видеокарта, другая модель пересказа, другой голос). ИИ
+объяснит по шагам и сам внесёт правки — программистом быть не обязательно.
+Собственно, весь этот проект так и делался.
+
+*Not a programmer? Install [Claude Desktop](https://claude.ai/download) and
+open this project in it — with **Opus 4.8** you can ask, in plain language, to
+explain the code, install what's needed, and **adapt the project to your own
+hardware** (different GPU, different summariser model, different voice). This
+whole project was built exactly that way.*
+
 ## Безопасность / Security
 
 - **Токен Telegram-бота — секрет.** Не коммить `telegram.json` (он в
