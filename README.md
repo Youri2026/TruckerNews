@@ -186,6 +186,72 @@ from the phone.** A custom scraper is only needed for sites without RSS.*
 видеокарта), поэтому пути и адреса сервисов вынесены в настройки — подгони
 под свою машину.
 
+## Установка по шагам / Step-by-step install
+
+Всё ставится на Linux (обкатано на Ubuntu). Команды примерные — подгони
+под свою систему.
+
+**0. Взять сам проект**
+```bash
+git clone https://github.com/Youri2026/TruckerNews.git
+cd TruckerNews
+```
+
+**1. Python**
+Нужен Python 3.11+ (в Ubuntu: `sudo apt install python3 python3-pip`).
+Самим скриптам проекта хватает стандартной библиотеки — под них ставить
+ничего не надо. Библиотеки ниже нужны для сервисов озвучки и распознавания.
+
+**2. Модель пересказа — T-Pro + vLLM**
+- Движок [vLLM](https://github.com/vllm-project/vllm): `pip install vllm`.
+- Модель (готовая, сжата в int4, чистый русский от калибровки на Пушкине):
+  **[Youri2/T-pro-it-1.0-int4-W4A16](https://huggingface.co/Youri2/T-pro-it-1.0-int4-W4A16)**
+  на Hugging Face. Вручную качать не обязательно — vLLM скачает сам при
+  первом запуске.
+- Поднять как OpenAI-совместимый сервер (пример, порт 8002):
+  ```bash
+  vllm serve Youri2/T-pro-it-1.0-int4-W4A16 --port 8002
+  ```
+  Этот адрес (`http://127.0.0.1:8002`) впиши в начало `digest-news-en-ru.py`.
+  Подойдёт и любая другая модель с хорошим русским — лишь бы отдавала
+  OpenAI-совместимый API.
+
+**3. Озвучка — Fish Speech**
+- Скачать и поставить по инструкции их репозитория:
+  **[github.com/fishaudio/fish-speech](https://github.com/fishaudio/fish-speech)**.
+  Это отдельный локальный бесплатный сервис — на вход текст, на выход
+  голосовой файл.
+- **Про голос `adam`.** Fish умеет **клонировать голос по короткому образцу**
+  (несколько секунд записи). В настройке проекта голос назван `adam` — это
+  **личный голос автора**, у тебя его нет. Запиши свой образец, заведи в
+  Fish под своим именем и **поставь это имя** в `digest-news-en-ru.py`
+  (переменная `VOICE_PLAIN`).
+- Fish можно заменить на **любой другой движок озвучки**, лишь бы отдавал
+  звуковой файл.
+
+**4. Скачивание и расшифровка роликов**
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — качает звук с ютуба:
+  `pip install yt-dlp` (или готовый файл со страницы релизов).
+- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) — распознаёт
+  речь в текст: `pip install faster-whisper` (можно и обычный
+  [Whisper](https://github.com/openai/whisper)).
+
+**5. Telegram-бот**
+- Написать **[@BotFather](https://t.me/BotFather)** → создать бота → взять
+  **токен**.
+- Узнать свой **chat_id** (например, через **[@userinfobot](https://t.me/userinfobot)**)
+  — это адрес, куда бот будет слать выпуски.
+- И токен, и chat_id впиши в `telegram.json` (см. следующий раздел).
+
+*In short: `git clone` this repo; Python 3.11+; serve the summariser model
+with [vLLM](https://github.com/vllm-project/vllm) (the ready int4 model is
+[Youri2/T-pro-it-1.0-int4-W4A16](https://huggingface.co/Youri2/T-pro-it-1.0-int4-W4A16));
+install [Fish Speech](https://github.com/fishaudio/fish-speech) for TTS and
+set your own cloned voice (the `adam` name in the config is the author's own
+voice — replace it); `pip install yt-dlp faster-whisper`; create a Telegram
+bot via [@BotFather](https://t.me/BotFather) and grab its token + your
+chat_id. Then fill in the settings below.*
+
 ## Настройка / Setup
 
 1. Скопируй примеры настроек и впиши свои значения:
@@ -196,7 +262,8 @@ from the phone.** A custom scraper is only needed for sites without RSS.*
    - `telegram.json` — токен твоего бота и chat_id (**никому не показывай**).
    - `config.json` — список ютуб-каналов и включённые ленты.
 2. Укажи адреса своих сервисов (модель пересказа, TTS) в начале
-   `digest-news-en-ru.py`.
+   `digest-news-en-ru.py`, а также имя своего голоса в `VOICE_PLAIN`
+   (по умолчанию стоит `adam` — голос автора, поставь свой).
 3. Запусти сборку выпуска вручную для проверки:
    ```bash
    python3 digest-news-en-ru.py
