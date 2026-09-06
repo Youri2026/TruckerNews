@@ -389,7 +389,7 @@ def страница(итог=None):
     к.append("<div class='когда' style='margin-top:10px'>Добавить "
              "телеграм-канал:</div>")
     к.append("<form method='post' action='/tg-add'>"
-             "<input type='text' name='имя' placeholder='Имя (например Монтян)'>"
+             "<input type='text' name='имя' placeholder='Имя (как назвать в выпуске)'>"
              "<input type='text' name='url' "
              "placeholder='Ссылка t.me/канал или @канал'>"
              "<button class='кнопка'>Добавить телеграм-канал</button></form>")
