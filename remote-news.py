@@ -343,31 +343,6 @@ def страница(итог=None):
             f"{'вкл' if вкл else 'выкл'}</button></form>"
             "</div>")
 
-    # ── Телеграм-каналы (добавляемые) ──
-    к.append("<div class='раздел'>Телеграм-каналы</div>")
-    for i, c in enumerate(cfg.get("телеграм", [])):
-        вкл = c.get("вкл", True)
-        к.append(
-            "<div class='пара'>"
-            f"<div class='строка {'живая' if вкл else 'тускло'}'>"
-            f"{'🟢' if вкл else '⚪'} {html.escape(c.get('имя', '?'))}</div>"
-            f"<form method='post' action='/tg-toggle'>"
-            f"<input type='hidden' name='i' value='{i}'>"
-            f"<button class='тумблер {'вкл' if вкл else 'выкл'}'>"
-            f"{'вкл' if вкл else 'выкл'}</button></form>"
-            f"<form method='post' action='/tg-del' "
-            "onsubmit=\"return confirm('Убрать телеграм-канал?')\">"
-            f"<input type='hidden' name='i' value='{i}'>"
-            f"<button class='крестик'>✕</button></form>"
-            "</div>")
-    к.append("<div class='когда' style='margin-top:10px'>Добавить "
-             "телеграм-канал:</div>")
-    к.append("<form method='post' action='/tg-add'>"
-             "<input type='text' name='имя' placeholder='Имя (например Монтян)'>"
-             "<input type='text' name='url' "
-             "placeholder='Ссылка t.me/канал или @канал'>"
-             "<button class='кнопка'>Добавить телеграм-канал</button></form>")
-
     # ── RSS-ленты (добавляемые) ──
     к.append("<div class='раздел'>RSS-ленты (сайты)</div>")
     for i, c in enumerate(cfg.get("rss", [])):
@@ -392,6 +367,32 @@ def страница(итог=None):
              "<input type='text' name='url' "
              "placeholder='Адрес RSS-ленты (…/rss.xml)'>"
              "<button class='кнопка'>Добавить RSS-ленту</button></form>")
+
+    # ── Телеграм-каналы (добавляемые) — В САМОМ НИЗУ (Гиркин последним,
+    #    как и в самом выпуске; заказ автора 2026-09-06) ──
+    к.append("<div class='раздел'>Телеграм-каналы</div>")
+    for i, c in enumerate(cfg.get("телеграм", [])):
+        вкл = c.get("вкл", True)
+        к.append(
+            "<div class='пара'>"
+            f"<div class='строка {'живая' if вкл else 'тускло'}'>"
+            f"{'🟢' if вкл else '⚪'} {html.escape(c.get('имя', '?'))}</div>"
+            f"<form method='post' action='/tg-toggle'>"
+            f"<input type='hidden' name='i' value='{i}'>"
+            f"<button class='тумблер {'вкл' if вкл else 'выкл'}'>"
+            f"{'вкл' if вкл else 'выкл'}</button></form>"
+            f"<form method='post' action='/tg-del' "
+            "onsubmit=\"return confirm('Убрать телеграм-канал?')\">"
+            f"<input type='hidden' name='i' value='{i}'>"
+            f"<button class='крестик'>✕</button></form>"
+            "</div>")
+    к.append("<div class='когда' style='margin-top:10px'>Добавить "
+             "телеграм-канал:</div>")
+    к.append("<form method='post' action='/tg-add'>"
+             "<input type='text' name='имя' placeholder='Имя (например Монтян)'>"
+             "<input type='text' name='url' "
+             "placeholder='Ссылка t.me/канал или @канал'>"
+             "<button class='кнопка'>Добавить телеграм-канал</button></form>")
 
     # ── Запустить выпуск сейчас ──
     к.append("<div class='раздел'>Проверка</div>")
