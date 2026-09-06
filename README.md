@@ -77,6 +77,52 @@ reading while driving.*
 
 Так одно событие звучит один раз, а не повторяется по каждому каналу.
 
+## Два вида лент: RSS и «текстовые» / RSS vs. scraped feeds
+
+Новостные сайты в дайджесте бывают двух видов, и разница только в **одном**:
+есть ли у сайта готовый «список новостей для машин».
+
+- **RSS-ленты.** Сайт сам отдаёт **готовый ровный список свежих статей**
+  по особому адресу (обычно кончается на `/rss` или `.xml`). Программе
+  остаётся забрать готовый список ссылок — ничего угадывать не нужно.
+  Такие ленты можно **добавлять и убирать с телефона** одним касанием:
+  вписал имя и адрес ленты — готово. Пример в комплекте: The Electronic
+  Intifada, Tehran Times, Mehr.
+- **«Текстовые» ленты (соскабливание).** У некоторых сайтов RSS нет вовсе.
+  Тогда программа читает новости **прямо с живой страницы сайта**, как
+  человек глазами: качает главную, по заранее прописанному в коде шаблону
+  выхватывает ссылки на статьи, заходит в каждую и вытаскивает текст,
+  отбрасывая служебные «шапки». Для каждого такого сайта нужен **свой
+  кусок кода**, поэтому их **нельзя добавлять/убирать с телефона** — они
+  вшиты в программу и только включаются/выключаются. Пример в комплекте:
+  Al-Masirah (Йемен) — у сайта нет RSS, сертификат «кривой» (приходится
+  обходить проверку), а ссылки на статьи ведут вообще на другой их домен;
+  всё это учтено в коде разбора именно этого сайта.
+
+Вывод для настройки: **если у сайта есть RSS — добавляй его как
+RSS-ленту, это делается с телефона и без кода.** Собственный «соскабливающий»
+разбор нужен только для сайтов без RSS.
+
+*News sites here come in two kinds; the only real difference is whether the
+site publishes a machine-readable list of its articles.*
+
+- ***RSS feeds.*** *The site itself serves a ready-made list of fresh
+  articles at a dedicated address (usually ending in `/rss` or `.xml`). The
+  program just grabs that list — nothing to guess. These can be **added and
+  removed right from your phone**: type a name and the feed URL, done.*
+- ***"Scraped" feeds.*** *Some sites have no RSS at all. Then the program
+  reads the news **straight from the live web page** — downloads the
+  homepage, pulls out article links by a pattern hard-coded for that site,
+  opens each one and extracts the body, dropping boilerplate headers. Each
+  such site needs **its own bit of code**, so these **can't be added/removed
+  from the phone** — they are built in and can only be toggled on/off. The
+  bundled example, Al-Masirah, has no RSS, a broken TLS certificate (so cert
+  checking is bypassed), and article links pointing to a different domain —
+  all handled by code written specifically for that site.*
+
+*Rule of thumb: **if a site has RSS, add it as an RSS feed — no code, done
+from the phone.** A custom scraper is only needed for sites without RSS.*
+
 ## Требования к железу / Hardware
 
 Проект рассчитан на самостоятельный хостинг с локальной видеокартой —
