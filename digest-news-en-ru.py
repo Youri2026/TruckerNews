@@ -59,23 +59,13 @@ RT_EXTRA = [
     },
 ]
 
-# Иранские агентства (автор одобрил Tehran Times и Mehr 2026-07-23; Press TV отклонил).
-IRAN_AGENCIES = [
-    {
-        "name": "Tehran Times", "prefix": "tehrantimes", "limit": 8,
-        "list": "https://www.tehrantimes.com/",
-        "base": "https://www.tehrantimes.com",
-        "link_re": r'href="(/news/(\d+)/[^"?#]+)"',
-        "intro": "Новости от иранского агентства Тегеран Таймс.",
-    },
-    {
-        "name": "Mehr", "prefix": "mehr", "limit": 8,
-        "list": "https://en.mehrnews.com/",
-        "base": "https://en.mehrnews.com",
-        "link_re": r'href="(/news/(\d+)/[^"?#]+)"',
-        "intro": "Новости от иранского агентства Мехр.",
-    },
-]
+# Иранские агентства с собственным разбором. 2026-09-06: Tehran Times и Mehr
+# переехали в универсальные RSS-ленты (RSS_ЛЕНТЫ) — у обоих есть чистый
+# RSS-канал, а тело статьи достаётся тем же article_text, поэтому качество
+# не изменилось, зато их теперь можно включать/убирать с пульта наравне с
+# прочими лентами. Список оставлен пустым — сюда можно вернуть агентство,
+# у которого нет RSS и нужен собственный разбор страницы.
+IRAN_AGENCIES = []
 IRAN_SKIP = re.compile(
     r"about-us|contact-us|privacy|terms|advertise|sitemap|rss|/tags?/", re.I
 )
@@ -165,14 +155,23 @@ YT_WORKDIR = "/tmp/yt_news"
 # по умолчанию, все ленты включены).
 NEWS_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 # Встроенные ленты со СВОИМ разбором (спец-логика) — только вкл/выкл.
-ЛЕНТЫ_ВКЛ = {"iran-tehrantimes": True, "iran-mehr": True, "almasirah": True}
+# Осталась одна Аль-Масира: у неё нет RSS-канала, поэтому её нельзя
+# перевести в универсальные RSS-ленты (Tehran Times и Mehr переведены).
+ЛЕНТЫ_ВКЛ = {"almasirah": True}
 # Телеграм-каналы и универсальные RSS-ленты — их можно добавлять/убирать
-# с пульта (автор 2026-09-06). По умолчанию — Стрелков и Electronic Intifada.
+# с пульта (автор 2026-09-06). По умолчанию — Стрелков и три ленты
+# (Electronic Intifada + переехавшие сюда Тегеран Таймс и Мехр).
 ТЕЛЕГРАМ = [{"имя": "Стрелков (Гиркин)", "url": "https://t.me/s/strelkovii",
              "prefix": "strelkov", "вкл": True}]
 RSS_ЛЕНТЫ = [{"имя": "The Electronic Intifada",
               "url": "https://electronicintifada.net/rss.xml",
-              "prefix": "ei", "вкл": True}]
+              "prefix": "ei", "вкл": True},
+             {"имя": "Тегеран Таймс (Иран)",
+              "url": "https://www.tehrantimes.com/rss",
+              "prefix": "tehrantimes", "вкл": True},
+             {"имя": "Мехр (Иран)",
+              "url": "https://en.mehrnews.com/rss",
+              "prefix": "mehr", "вкл": True}]
 
 
 def _применить_конфиг():
