@@ -174,8 +174,10 @@ from the phone.** A custom scraper is only needed for sites without RSS.*
   запущенная через [vLLM](https://github.com/vllm-project/vllm). Модель
   выложена и готова к скачиванию. Подойдёт и любая другая с хорошим
   русским — адрес задаётся в настройках.
-- **Синтез речи (TTS)** — в оригинале [Fish Speech](https://github.com/fishaudio/fish-speech);
-  можно заменить на любой, что отдаёт голосовой файл.
+- **Озвучка (Fish Speech TTS)** — превращает готовый пересказ в голос. В
+  оригинале — [Fish Speech](https://github.com/fishaudio/fish-speech)
+  (свой, локальный, бесплатный); можно заменить на любой движок озвучки,
+  что отдаёт голосовой файл.
 - **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** — скачивание аудио с ютуба.
 - **[faster-whisper](https://github.com/SYSTRAN/faster-whisper) / transformers Whisper** — расшифровка роликов.
 - **Telegram-бот** — создать у [@BotFather](https://t.me/BotFather), взять токен.
