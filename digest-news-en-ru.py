@@ -720,8 +720,10 @@ def _send_voice_one(token, chat, path):
         if пауза:
             time.sleep(пауза)
         r = subprocess.run(
+            # chat_id через --form-string: иначе curl принимает «@канал» за
+            # имя файла для загрузки и запрос падает с http=000 (2026-09-06).
             ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", url,
-             "-F", f"chat_id={chat}", "-F", f"voice=@{path}"],
+             "--form-string", f"chat_id={chat}", "-F", f"voice=@{path}"],
             check=False, capture_output=True, text=True,
         )
         code = (r.stdout or "").strip()
