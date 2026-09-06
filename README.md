@@ -272,6 +272,27 @@ chat_id. Then fill in the settings below.*
    python3 remote-news.py     # веб-пульт настроек, по умолчанию порт 8091
    ```
 
+### Вещание в публичный канал (по желанию) / Public channel (optional)
+
+По умолчанию выпуск приходит только вам в личку. Если хотите **раздавать
+новости публично**, можно слать их ещё и в телеграм-канал — тогда рассылку
+подписчикам делает сам Telegram, а ваш компьютер собирает выпуск **один раз**
+независимо от числа слушателей.
+
+1. Создайте телеграм-канал и добавьте своего бота в его **администраторы**
+   с правом «Публикация сообщений».
+2. В `telegram.json` укажите канал и включите режим:
+   ```json
+   { "token": "...", "chat_id": "...",
+     "channel": "@ваш_канал", "channel_вкл": true }
+   ```
+   Выпуск будет приходить и вам в личку, и в канал. Чтобы выключить —
+   поставьте `"channel_вкл": false` (или уберите строку `channel`).
+
+*Note: publishing to a public channel makes you a publisher — you become
+responsible for accuracy and for the editorial slant of your chosen sources.
+Check what is legal to rebroadcast in your country.*
+
 ## Нужна помощь? / Stuck?
 
 Если технические шаги кажутся вам слишком сложными — не беда. Поставьте себе

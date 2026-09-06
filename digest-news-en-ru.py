@@ -685,9 +685,17 @@ def guard_text(text):
 
 
 def _tg_creds():
+    """Токен и список адресов, куда слать выпуск. Первый — личный чат
+    (его шлём всегда), за ним — публичный канал, если он задан и включён
+    (telegram.json: "channel" + "channel_вкл"). Так один и тот же выпуск
+    приходит и вам в личку, и в общий канал."""
     with open(TG_CONF) as f:
         d = json.load(f)
-    return d["token"], d["chat_id"]
+    адреса = [d["chat_id"]]
+    канал = d.get("channel")
+    if канал and d.get("channel_вкл", True):
+        адреса.append(канал)
+    return d["token"], адреса
 
 
 def make_ogg(text, path, voice=VOICE_PLAIN):
@@ -697,16 +705,15 @@ def make_ogg(text, path, voice=VOICE_PLAIN):
     return rc == 0 and os.path.exists(path) and os.path.getsize(path) > 0
 
 
-def send_voice_file(path):
-    """Отправить готовый ogg как голосовое в телеграм. True — успех.
+def _send_voice_one(token, chat, path):
+    """Отправить голосовое в ОДИН адрес с повторами. True — успех.
 
     2026-08-05: раньше при отказе голосовое просто терялось — в прогоне
-    02:01 телеграм ответил 429 («слишком часто»), и одна новость до
-    автора не доехала. Теперь ждём и пробуем снова: 429 — это не «нельзя»,
-    а «погоди». Столько же смысла в повторе при 5xx — это сбой на их
-    стороне. При прочих кодах (403, 400) повторять бесполезно.
+    02:01 телеграм ответил 429 («слишком часто»), и одна новость не
+    доехала. Теперь ждём и пробуем снова: 429 — это не «нельзя», а
+    «погоди». Столько же смысла в повторе при 5xx — сбой на их стороне.
+    При прочих кодах (403, 400) повторять бесполезно.
     """
-    token, chat = _tg_creds()
     url = f"https://api.telegram.org/bot{token}/sendVoice"
     ЗАДЕРЖКИ = (5, 15, 30)          # сколько ждать перед каждой попыткой
     for попытка, пауза in enumerate((0,) + ЗАДЕРЖКИ):
@@ -720,16 +727,28 @@ def send_voice_file(path):
         code = (r.stdout or "").strip()
         if code == "200":
             if попытка:
-                print(f"  ушло с {попытка + 1}-й попытки", file=sys.stderr)
+                print(f"  {chat}: ушло с {попытка + 1}-й попытки", file=sys.stderr)
             return True
         повторимо = code == "429" or code.startswith("5")
-        print(f"  sendVoice http={code}"
+        print(f"  sendVoice {chat} http={code}"
               f"{' — жду и пробую снова' if повторимо else ''}",
               file=sys.stderr)
         if not повторимо:
             return False
-    print("  не отправилось после всех попыток", file=sys.stderr)
+    print(f"  {chat}: не отправилось после всех попыток", file=sys.stderr)
     return False
+
+
+def send_voice_file(path):
+    """Отправить голосовое во ВСЕ адреса (личка + канал, если включён).
+    Возвращает True, если дошло в ГЛАВНЫЙ адрес (личный чат) — по нему
+    решаем, помечать ли новость показанной. Сбой канала выпуск не срывает:
+    новость и так уже дошла до вас лично."""
+    token, адреса = _tg_creds()
+    ок_главный = _send_voice_one(token, адреса[0], path)
+    for chat in адреса[1:]:
+        _send_voice_one(token, chat, path)   # канал — не критично для дедупа
+    return ок_главный
 
 
 def load_seen():
