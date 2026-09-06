@@ -309,6 +309,17 @@ explain the code, install what's needed, and **adapt the project to your own
 hardware** (different GPU, different summariser model, different voice). This
 whole project was built exactly that way.*
 
+**Хотите сначала посмотреть, как оно работает?** Если хотите ознакомиться с
+действием программы **до установки** — подпишитесь на канал
+**[@voice_news_digest](https://t.me/voice_news_digest)**, где она (пока)
+работает в реальном времени: **7 дней в неделю, новый выпуск каждые два
+часа**. Послушаете живые выпуски и решите, надо ли оно вам.
+
+*Want to see it in action first? Before installing anything, subscribe to
+**[@voice_news_digest](https://t.me/voice_news_digest)** — a live channel
+where it currently runs in real time, **7 days a week, a fresh issue every
+two hours**. Listen to real digests and decide if it's for you.*
+
 ## Безопасность / Security
 
 - **Токен Telegram-бота — секрет.** Не коммитьте `telegram.json` (он в
