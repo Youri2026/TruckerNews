@@ -18,6 +18,7 @@ import html
 import json
 import os
 import re
+import fcntl
 import subprocess
 import sys
 import urllib.parse
@@ -27,6 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ПОРТ = 8091
 КОНФИГ = os.path.expanduser("~/news-config.json")
 СКРИПТ = "/home/user/bin/digest-news-en-ru.py"
+ЗАМОК = os.path.expanduser("~/.rt-news.lock")  # тот же, что держит выпуск
 ПРОГРЕСС = "/home/user/news-progress.json"
 ПРОГРЕСС_ИСТ = "/home/user/news-progress-hist.json"
 
@@ -584,7 +586,26 @@ def _список_действие(поля, ключ_списка, действ
     return f"«{имя}» — {'вкл' if сп[i]['вкл'] else 'выкл'}"
 
 
+def _выпуск_идёт():
+    """True, если прямо сейчас уже собирается выпуск (замок занят)."""
+    try:
+        ф = open(ЗАМОК, "w")
+    except OSError:
+        return False
+    try:
+        fcntl.flock(ф.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(ф.fileno(), fcntl.LOCK_UN)
+        return False
+    except OSError:
+        return True
+    finally:
+        ф.close()
+
+
 def запустить_сейчас():
+    if _выпуск_идёт():
+        return ("выпуск уже собирается — второй не запускаю, жди голосовые "
+                "(это защита от повторов)")
     try:
         лог = open("/home/user/digest-news-en-ru.log", "a")
         subprocess.Popen(["/usr/bin/python3", СКРИПТ],
