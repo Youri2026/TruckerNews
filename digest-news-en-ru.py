@@ -529,16 +529,23 @@ def _chat(prompt, temperature=0.3):
     из видеопамяти — «Connection refused»), НЕ бросаем ролик, а
     переподнимаем модель и повторяем запрос. Иначе после первого падения
     все оставшиеся ролики шли в пропуск (разбор выпуска 6:00)."""
-    payload = json.dumps(
-        {
-            "model": MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "stream": False,
-            "temperature": temperature,
-            "chat_template_kwargs": {"enable_thinking": False},
-        }
-    ).encode()
-    for попытка in (1, 2):
+    # ПОВТОР НА ПУСТОЙ ОТВЕТ (автор 2026-09-08: «это повод повторить обработку
+    # немедленно, а не просто сообщить об ошибке»). Пустой ответ модели —
+    # обычно мгновенная «икота»; сразу переспрашиваем, слегка подняв
+    # температуру, чтобы подтолкнуть её дать текст. «Пусто» уходит в
+    # статистику, только если и после всех повторов ничего.
+    ПОПЫТОК = 3
+    темпа = temperature
+    for попытка in range(1, ПОПЫТОК + 1):
+        payload = json.dumps(
+            {
+                "model": MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "temperature": темпа,
+                "chat_template_kwargs": {"enable_thinking": False},
+            }
+        ).encode()
         req = urllib.request.Request(
             VLLM_URL, data=payload,
             headers={"Content-Type": "application/json"}
@@ -546,9 +553,20 @@ def _chat(prompt, temperature=0.3):
         try:
             with urllib.request.urlopen(req, timeout=900) as r:
                 data = json.load(r)
-            return (data["choices"][0]["message"].get("content") or "").strip()
+            content = (data["choices"][0]["message"].get("content") or "").strip()
+            if content:
+                return content
+            # модель вернула ПУСТО — переспрашиваем немедленно
+            if попытка < ПОПЫТОК:
+                print(f"  T-pro вернула пустой ответ — переспрашиваю "
+                      f"({попытка + 1}/{ПОПЫТОК})", file=sys.stderr)
+                темпа = min(0.9, темпа + 0.15)
+                time.sleep(2)
+                continue
+            print("  T-pro и после повторов дала пусто", file=sys.stderr)
+            return ""
         except (urllib.error.URLError, ConnectionError) as e:
-            if попытка == 2:
+            if попытка == ПОПЫТОК:
                 raise
             print(f"  T-pro не ответила ({e}) — переподнимаю и повторяю",
                   file=sys.stderr)
@@ -556,6 +574,7 @@ def _chat(prompt, temperature=0.3):
             subprocess.run(["/home/user/.local/bin/tpro-5090-start.sh"],
                            check=False)
             time.sleep(3)
+    return ""
 
 
 def ask_plain(title, text):
