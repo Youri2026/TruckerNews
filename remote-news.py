@@ -290,6 +290,16 @@ def статистика_html():
             d = json.load(f)
     except Exception:
         return ""
+    def перечень_html(ключ, подпись):
+        d2 = d.get(ключ) or {}
+        if not d2:
+            return ""
+        всего2 = sum(d2.values())
+        сп = ", ".join(f"{html.escape(str(k))}: {v}"
+                       for k, v in sorted(d2.items(), key=lambda x: -x[1]))
+        return (f"<div style='margin-top:4px'>{подпись}: "
+                f"<b>{всего2}</b> ({html.escape(сп)})</div>")
+
     ист = d.get("источники") or {}
     всего = sum(ист.values()) if ист else 0
     if ист:
@@ -306,7 +316,10 @@ def статистика_html():
         "<div class='мон мон-простой'>"
         f"🕒 {когда}<br>"
         f"Скачано новых материалов: <b>{всего}</b>{откуда}"
-        f"<div style='margin-top:6px'>Событий: <b>{d.get('событий', 0)}</b> — "
+        + перечень_html("без_звука", "Без звука (ролик не скачался)")
+        + перечень_html("не_скачалось", "Не удалось скачать (403/сеть)")
+        + перечень_html("ошибок_обработки", "Ошибки обработки")
+        + f"<div style='margin-top:6px'>Событий: <b>{d.get('событий', 0)}</b> — "
         f"новых <b>{d.get('новых', 0)}</b>, "
         f"дополнений к старому <b>{d.get('дополнений', 0)}</b>, "
         f"повторов <b>{d.get('повторов', 0)}</b></div>"

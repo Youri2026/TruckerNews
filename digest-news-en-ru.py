@@ -60,12 +60,12 @@ RT_EXTRA = [
     },
 ]
 
-# Иранские агентства с собственным разбором. 2026-09-06: Tehran Times и Mehr
-# переехали в универсальные RSS-ленты (RSS_ЛЕНТЫ) — у обоих есть чистый
-# RSS-канал, а тело статьи достаётся тем же article_text, поэтому качество
-# не изменилось, зато их теперь можно включать/убирать с пульта наравне с
-# прочими лентами. Список оставлен пустым — сюда можно вернуть агентство,
-# у которого нет RSS и нужен собственный разбор страницы.
+# Иранские агентства (автор одобрил Tehran Times и Mehr 2026-07-23; Press TV отклонил).
+# 2026-09-06: Tehran Times и Mehr ПЕРЕЕХАЛИ в универсальные RSS-ленты
+# (RSS_ЛЕНТЫ) — у обоих есть чистый RSS-канал, разбор тела статьи тот же
+# (article_text), поэтому качество не изменилось, зато их теперь можно
+# включать/убирать с пульта наравне с прочими лентами. Список оставлен
+# пустым на случай, если понадобится вернуть агентство со СВОИМ разбором.
 IRAN_AGENCIES = []
 IRAN_SKIP = re.compile(
     r"about-us|contact-us|privacy|terms|advertise|sitemap|rss|/tags?/", re.I
@@ -146,6 +146,11 @@ YT_CHANNELS = [
      "intro": "Ролики Кэндис Оуэнс с ютуба."},
 ]
 YTDLP = "/home/user/.local/bin/yt-dlp"
+# JS-движок для yt-dlp (автор 2026-09-08: «с проколами надо что-то делать»).
+# Ютуб перешёл на JS-подпись/PO-токены; без движка часть роликов теряет
+# аудио-формат и падает «звук не скачался». node уже стоит в системе —
+# указываем явный путь, чтобы работало и из cron (там урезанный PATH).
+YTDLP_JS = ["--js-runtimes", "node:/usr/bin/node"]
 WHISPER_PY = "/home/user/tts_test/venv_fish/bin/python"
 YT_TRANSCRIBE = "/home/user/bin/yt-transcribe.py"
 YT_WORKDIR = "/tmp/yt_news"
@@ -267,7 +272,7 @@ SEEN_KEEP_DAYS = 21
 
 # Память УСЛЫШАННЫХ СЮЖЕТОВ (не статей, а событий), чтобы одно и то же
 # событие из разных источников не звучало по многу раз, а звучало только
-# его развитие. Список {дата, тема, суть}.
+# его развитие (заказ автора 2026-09-07). Список {дата, тема, суть}.
 HEARD_FILE = os.path.expanduser("~/.rt-news-heard.json")
 HEARD_KEEP_DAYS = 3       # сколько дней помнить сюжет (окно «уже звучало»)
 # Сюжеты текущего прогона; сохраняются в HEARD_FILE только ПОСЛЕ доставки
@@ -278,12 +283,21 @@ HEARD_KEEP_DAYS = 3       # сколько дней помнить сюжет (�
 # сколько и откуда скачено, сколько повторных, сколько новых, сколько
 # дополнений к старым»). Заполняется по ходу, печатается сводкой в конце.
 СТАТ = {
-    "источники": {},   # имя источника -> собрано новых статей/роликов
+    "источники": {},        # имя источника -> собрано новых статей/роликов
+    "без_звука": {},        # ролики, у которых не скачался звук (по источникам)
+    "не_скачалось": {},     # не удалось скачать/открыть — 403, сеть (по источникам)
+    "ошибок_обработки": {}, # выпало при обработке: пусто/коротко/сбой (по источникам)
     "событий": 0,      # во сколько «событий» слились собранные сообщения
     "новых": 0,        # событий, которых ещё не было (нет похожих в памяти)
     "дополнений": 0,   # событий-развитий уже звучавшего (T-Pro дал дельту)
     "повторов": 0,     # событий, целиком уже звучавших (отброшены)
 }
+
+
+def _стат_плюс(раздел, источник):
+    """+1 в посточниковый счётчик статистики (заказ автора 2026-09-08)."""
+    d = СТАТ[раздел]
+    d[источник] = d.get(источник, 0) + 1
 
 # Вступления по источникам (дословно, как просил автор).
 INTRO_RT = "Новости от конторы Григорян."
@@ -412,13 +426,29 @@ def almasirah_links():
 
 
 def almasirah_body(article_html):
-    """Текст статьи «Аль-Масиры» без служебной шапки (первый абзац-дисклеймер)."""
+    """Текст статьи «Аль-Масиры» без служебной шапки.
+
+    2026-09-08 (автор: «с проколами надо что-то делать»): сайт стал грузить
+    тело статьи JavaScript-ом, в статическом HTML остались только служебные
+    <p> (бралось 47 символов подвала — все статьи выпадали). Сам текст сайт
+    кладёт в мета-описание страницы — берём его, если из <p> вышло мало.
+    """
     clean = []
     for p in re.findall(r"<p[^>]*>(.*?)</p>", article_html, re.S):
         t = strip_tags(p)
         if t and not ALMASIRAH_BOILER.search(t):
             clean.append(t)
-    return " ".join(clean)[:4000]
+    текст = " ".join(clean)
+    if len(текст) < 200:
+        # берём до ЗАКРЫТИЯ тега ("> ), а не до первой кавычки — в тексте
+        # статьи бывают кавычки («strategic blow»), они обрывали захват
+        m = re.search(r'<meta\s+name="description"\s+content="(.*?)"\s*/?>',
+                      article_html, re.S | re.I)
+        if m:
+            опис = html.unescape(strip_tags(m.group(1))).strip()
+            if len(опис) > len(текст):
+                текст = опис
+    return текст[:4000]
 
 
 def rss_links(feed_url, max_n=EI_MAX):
@@ -723,6 +753,9 @@ def текст_сводки(sent_total):
     """Человекочитаемая сводка прогона из СТАТ (для лога, Пульта, Telegram).
     Заказ автора 2026-09-08: видеть, сколько и откуда скачано, сколько
     повторных, новых и дополнений к старому."""
+    def перечень(d):
+        return ", ".join(f"{имя}: {n}" for имя, n in
+                         sorted(d.items(), key=lambda x: -x[1]))
     ист = СТАТ["источники"]
     строки = ["📊 Сводка прогона новостей"]
     if ист:
@@ -732,6 +765,18 @@ def текст_сводки(sent_total):
         строки.append(f"Скачано новых материалов: {всего}\n{откуда}")
     else:
         строки.append("Скачано новых материалов: 0 — нового нет")
+    if СТАТ["без_звука"]:
+        строки.append(f"Без звука (ролик не скачался): "
+                      f"{sum(СТАТ['без_звука'].values())} — "
+                      f"{перечень(СТАТ['без_звука'])}")
+    if СТАТ["не_скачалось"]:
+        строки.append(f"Не удалось скачать (403/сеть): "
+                      f"{sum(СТАТ['не_скачалось'].values())} — "
+                      f"{перечень(СТАТ['не_скачалось'])}")
+    if СТАТ["ошибок_обработки"]:
+        строки.append(f"Ошибки обработки (пусто/коротко/сбой): "
+                      f"{sum(СТАТ['ошибок_обработки'].values())} — "
+                      f"{перечень(СТАТ['ошибок_обработки'])}")
     строки.append(f"Событий после сведения: {СТАТ['событий']}")
     строки.append(f"  новых: {СТАТ['новых']}")
     строки.append(f"  дополнений к старому: {СТАТ['дополнений']}")
@@ -745,6 +790,9 @@ def сохранить_статистику(sent_total):
     данные = {
         "время": datetime.now().isoformat(timespec="seconds"),
         "источники": СТАТ["источники"],
+        "без_звука": СТАТ["без_звука"],
+        "не_скачалось": СТАТ["не_скачалось"],
+        "ошибок_обработки": СТАТ["ошибок_обработки"],
         "событий": СТАТ["событий"], "новых": СТАТ["новых"],
         "дополнений": СТАТ["дополнений"], "повторов": СТАТ["повторов"],
         "отправлено": sent_total,
@@ -774,6 +822,18 @@ def send_text_личное(text):
     code = (r.stdout or "").strip()
     print(f"  сводка в личку http={code}", file=sys.stderr)
     return code == "200"
+
+
+def выдать_сводку(sent_total):
+    """Показать сводку прогона: в лог, в файл для Пульта и лично в Telegram.
+    Вызывается ВСЕГДА — и когда выпуск ушёл, и когда нового не было (иначе
+    автор не видит проверок и отвалившегося; правка 2026-09-08)."""
+    сводка = текст_сводки(sent_total)
+    print("─── СВОДКА ПРОГОНА ───\n" + сводка
+          + "\n(ошибки скачивания отдельных статей/роликов — в строках выше)",
+          file=sys.stderr)
+    сохранить_статистику(sent_total)
+    send_text_личное(сводка)
 
 
 def make_ogg(text, path, voice=VOICE_PLAIN):
@@ -889,8 +949,8 @@ def yt_latest(ch):
     """[(video_id, title), ...] свежих роликов канала, не более ch['limit']."""
     try:
         out = subprocess.run(
-            [YTDLP, "--flat-playlist", "--playlist-end", str(ch["limit"]),
-             "--print", "%(id)s\t%(title)s", ch["url"]],
+            [YTDLP, *YTDLP_JS, "--flat-playlist", "--playlist-end",
+             str(ch["limit"]), "--print", "%(id)s\t%(title)s", ch["url"]],
             capture_output=True, text=True, timeout=120,
         ).stdout
     except Exception as e:
@@ -1114,10 +1174,10 @@ def _слить_темы(темы, всего):
             if номера:
                 группы.append((название, номера))
             название = None
-
     if повторно:
         print(f"  повторных выдач номеров: {повторно} — отброшены",
               file=sys.stderr)
+
     # ни одну новость не терять: что модель забыла — своей группой в конец
     for н in range(1, всего + 1):
         if н not in розданы:
@@ -1275,9 +1335,9 @@ def сводка_роликов(ролики):
             continue
         if not р:
             continue
-        # --- фильтр УСЛЫШАННОГО: событие звучит один раз, дальше — только
-        #     его развитие. Сверяем с похожими по словам записями памяти;
-        #     нет похожих — сюжет новый, сверять не с чем. ---
+        # --- фильтр УСЛЫШАННОГО (автор 2026-09-07): событие звучит один раз,
+        #     дальше — только его развитие. Сверяем с похожими по словам
+        #     записями памяти; нет похожих — сюжет новый, сверять не с чем. ---
         похожие = _релевантные_услышанные(название, р, память)
         if похожие:
             новое = _только_новое(р, похожие)
@@ -1426,15 +1486,16 @@ def yt_channel_items(ch, seen):
     for vid, title, iid in new:
         print(f"[{ch['name']} новый ролик] {title[:60]}", file=sys.stderr)
         path = os.path.join(YT_WORKDIR, f"{vid}.m4a")
+        r = None
         if not os.path.exists(path):
-            subprocess.run(
+            r = subprocess.run(
                 # 2026-08-25: ютуб перекрыл прямую отдачу формата 140 —
                 # без движка JavaScript он даёт только потоковые форматы,
                 # и качалка падала с «403 Forbidden» (все 65 роликов мимо).
                 # bestaudio берёт что дают; ffmpeg потом читает по содержимому,
                 # а не по расширению файла.
-                [YTDLP, "-f", "bestaudio[ext=m4a]/bestaudio", "-o", path,
-                 f"https://www.youtube.com/watch?v={vid}"],
+                [YTDLP, *YTDLP_JS, "-f", "bestaudio[ext=m4a]/bestaudio",
+                 "-o", path, f"https://www.youtube.com/watch?v={vid}"],
                 capture_output=True, text=True, timeout=900,
             )
         if os.path.exists(path):
@@ -1444,7 +1505,23 @@ def yt_channel_items(ch, seen):
             # ask_video пересказывает по частям и сводит воедино.
             audios.append((path, vid, title, iid))
         else:
-            print("  звук не скачался — пропуск", file=sys.stderr)
+            # 2026-09-08 (автор: «с проколами надо что-то делать»): различаем
+            # НЕ-ошибки от настоящих отказов, чтобы «без звука» не врало.
+            err = (r.stderr or "") if r else ""
+            if re.search(r"Premieres in|is upcoming|will begin|scheduled",
+                         err, re.I):
+                # ещё не вышел — вернёмся, когда выйдет; seen НЕ ставим
+                print("  ещё не вышел (премьера) — пропуск до эфира",
+                      file=sys.stderr)
+            elif re.search(r"members-only|join this channel|to members|"
+                           r"available to.*members", err, re.I):
+                # платный ролик для подписчиков — не скачать; больше не пробуем
+                seen[iid] = date.today().isoformat()
+                print("  платный ролик (для подписчиков канала) — "
+                      "пропуск навсегда", file=sys.stderr)
+            else:
+                _стат_плюс("без_звука", ch["name"])
+                print("  звук не скачался — пропуск", file=sys.stderr)
     if not audios:
         return []
     # 2) распознаём одним заходом (модель загружается один раз).
@@ -1479,14 +1556,17 @@ def yt_channel_items(ch, seen):
             with open(path + ".txt") as f:
                 text = f.read()
         except OSError:
+            _стат_плюс("ошибок_обработки", ch["name"])
             print(f"  {vid}: расшифровки нет — пропуск", file=sys.stderr)
             continue
         try:
-            if len(text) >= 300:
-                plain = ask_video(title, text)
-                if plain:
-                    items.append((guard_text(plain), iid))
+            plain = ask_video(title, text) if len(text) >= 300 else None
+            if plain:
+                items.append((guard_text(plain), iid))
+            else:
+                _стат_плюс("ошибок_обработки", ch["name"])
         except Exception as e:
+            _стат_плюс("ошибок_обработки", ch["name"])
             print(f"  {vid}: пропуск ({e})", file=sys.stderr)
         finally:
             for p in (path, path + ".txt"):
@@ -1538,12 +1618,15 @@ def collect_new():
                     continue
                 body = article_text(h)
                 if len(body) < 200:
+                    _стат_плюс("ошибок_обработки", ag["name"])
                     continue
                 plain = ask_plain(article_title(h), body)
                 if not plain:
+                    _стат_плюс("ошибок_обработки", ag["name"])
                     continue
                 ag_items.append((guard_text(plain), iid))
             except Exception as e:
+                _стат_плюс("не_скачалось", ag["name"])
                 print(f"  пропуск ({e})", file=sys.stderr)
         for текст, iid in ag_items:
             в_сводку.append((ag["name"], текст))
@@ -1561,12 +1644,15 @@ def collect_new():
             h = fetch_insecure(url)
             body = almasirah_body(h)
             if len(body) < 200:
+                _стат_плюс("ошибок_обработки", "Аль-Масира")
                 continue
             plain = ask_plain(article_title(h), body)
             if not plain:
+                _стат_плюс("ошибок_обработки", "Аль-Масира")
                 continue
             alm_items.append((guard_text(plain), iid))
         except Exception as e:
+            _стат_плюс("не_скачалось", "Аль-Масира")
             print(f"  пропуск ({e})", file=sys.stderr)
     for текст, iid in alm_items:
         в_сводку.append(("Аль-Масира", текст))
@@ -1586,12 +1672,15 @@ def collect_new():
                 h = fetch_insecure(url)
                 body = ei_body(h)
                 if len(body) < 200:
+                    _стат_плюс("ошибок_обработки", лента["имя"])
                     continue
                 plain = ask_plain(article_title(h), body)
                 if not plain:
+                    _стат_плюс("ошибок_обработки", лента["имя"])
                     continue
                 rss_itms.append((guard_text(plain), iid))
             except Exception as e:
+                _стат_плюс("не_скачалось", лента["имя"])
                 print(f"  пропуск ({e})", file=sys.stderr)
         for текст, iid in rss_itms:
             в_сводку.append((лента["имя"], текст))
@@ -1631,6 +1720,7 @@ def collect_new():
         try:
             posts = channel_posts(канал["url"], канал.get("n", STRELKOV_N))
         except Exception as e:
+            _стат_плюс("не_скачалось", name)
             print(f"{name}: не скачался ({e})", file=sys.stderr)
             posts = []
         ch_items = []
@@ -1644,11 +1734,15 @@ def collect_new():
             try:
                 plain = ask_channel(post)  # сохраняем сарказм/иронию автора
                 if not plain:
+                    _стат_плюс("ошибок_обработки", name)
                     continue
                 ch_items.append((guard_text(plain), iid))
             except Exception as e:
+                _стат_плюс("ошибок_обработки", name)
                 print(f"  пропуск ({e})", file=sys.stderr)
         if ch_items:
+            for _ in ch_items:
+                _стат_плюс("источники", name)
             segments.append((f"Новости от канала {name}.", None))
             segments.extend(ch_items)
 
@@ -1796,6 +1890,7 @@ def main():
     if not any(iid for _, iid in segments):
         print("Новых новостей нет — ничего не шлю.", file=sys.stderr)
         save_seen(seen)  # всё равно прунингуем старое
+        выдать_сводку(0)   # статистику показываем даже когда ничего не ушло
         прогресс_конец("новых новостей нет")
         return
 
@@ -1860,15 +1955,7 @@ def main():
                         seen[один] = date.today().isoformat()
         save_seen(seen)
     print(f"Готово: отослано {sent_total} голосовых.", file=sys.stderr)
-
-    # ── Сводка прогона (заказ автора 2026-09-08): в лог, в файл для Пульта и
-    #    ЛИЧНО в Telegram. В канал НЕ шлём — там только голосовые новости. ──
-    сводка = текст_сводки(sent_total)
-    print("─── СВОДКА ПРОГОНА ───\n" + сводка
-          + "\n(ошибки скачивания отдельных статей/роликов — в строках выше)",
-          file=sys.stderr)
-    сохранить_статистику(sent_total)
-    send_text_личное(сводка)
+    выдать_сводку(sent_total)   # в лог, на Пульт и лично в Telegram
 
     # Память услышанных сюжетов сохраняем ТОЛЬКО после доставки: если прогон
     # упал раньше — сюжеты не «запомнятся как услышанные», и завтра в худшем
