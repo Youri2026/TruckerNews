@@ -31,6 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ЗАМОК = os.path.expanduser("~/.rt-news.lock")  # тот же, что держит выпуск
 ПРОГРЕСС = "/home/user/news-progress.json"
 ПРОГРЕСС_ИСТ = "/home/user/news-progress-hist.json"
+СТАТ_ФАЙЛ = "/home/user/news-last-stats.json"  # статистика прогона (автор 08.09.2026)
 
 ДНИ = [("1", "Пн"), ("2", "Вт"), ("3", "Ср"), ("4", "Чт"),
        ("5", "Пт"), ("6", "Сб"), ("0", "Вс")]
@@ -281,6 +282,39 @@ def монитор_html():
     return "".join(к), True
 
 
+def статистика_html():
+    """Блок «Статистика последнего прогона» — читает файл, что пишет
+    digest-news (заказ автора 2026-09-08). Пусто, если прогонов ещё не было."""
+    try:
+        with open(СТАТ_ФАЙЛ, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception:
+        return ""
+    ист = d.get("источники") or {}
+    всего = sum(ист.values()) if ист else 0
+    if ист:
+        строки = "".join(
+            f"<div class='когда' style='margin:2px 0'>• "
+            f"{html.escape(str(имя))}: {n}</div>"
+            for имя, n in sorted(ист.items(), key=lambda x: -x[1]))
+        откуда = f"<div style='margin-top:4px'>{строки}</div>"
+    else:
+        откуда = ""
+    когда = html.escape((d.get("время") or "").replace("T", " "))
+    return (
+        "<div class='раздел'>Статистика последнего прогона</div>"
+        "<div class='мон мон-простой'>"
+        f"🕒 {когда}<br>"
+        f"Скачано новых материалов: <b>{всего}</b>{откуда}"
+        f"<div style='margin-top:6px'>Событий: <b>{d.get('событий', 0)}</b> — "
+        f"новых <b>{d.get('новых', 0)}</b>, "
+        f"дополнений к старому <b>{d.get('дополнений', 0)}</b>, "
+        f"повторов <b>{d.get('повторов', 0)}</b></div>"
+        f"<div style='margin-top:4px'>Отправлено голосовых: "
+        f"<b>{d.get('отправлено', 0)}</b></div>"
+        "</div>")
+
+
 # ── СТРАНИЦА ──────────────────────────────────────────────────────
 def страница(итог=None):
     cfg = читать_конфиг()
@@ -296,6 +330,7 @@ def страница(итог=None):
     if итог:
         к.append(f"<div class='итог'>{html.escape(итог)}</div>")
     к.append(монитор)
+    к.append(статистика_html())
 
     # ── Расписание ──
     к.append("<div class='раздел'>Когда выходят новости</div>")
