@@ -373,6 +373,11 @@ def страница(итог=None):
         вкл = c.get("вкл", True)
         берём = c.get("берём")
         знач = str(берём) if берём else ""
+        # @-имя канала ссылкой — чтобы отличить нужный канал от тёзки-двойника
+        # (автор 2026-09-11) и одним касанием открыть его на ютубе для проверки
+        ю_url = c.get("url", "")
+        _m = re.search(r"@([A-Za-z0-9_.\-]+)", ю_url)
+        ю_метка = "@" + _m.group(1) if _m else (ю_url or "ссылка не задана")
         к.append(
             "<div class='канал'>"
             "<div class='пара'>"
@@ -387,6 +392,10 @@ def страница(итог=None):
             f"<input type='hidden' name='i' value='{i}'>"
             f"<button class='крестик'>✕</button></form>"
             "</div>"
+            f"<div class='когда' style='margin:1px 0 4px 4px'>"
+            f"<a href='{html.escape(ю_url)}' target='_blank' rel='noopener' "
+            f"style='color:#7ab7ff;text-decoration:none'>"
+            f"{html.escape(ю_метка)}</a></div>"
             f"<form method='post' action='/kanal-max' class='макс'>"
             f"<input type='hidden' name='i' value='{i}'>"
             "<span>брать последних:</span>"
