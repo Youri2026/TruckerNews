@@ -1,127 +1,217 @@
 {
-  "ютуб": [
-    {
-      "имя": "Хинкл",
-      "url": "https://www.youtube.com/@JacksonHinkleOfficial/videos",
-      "prefix": "hinkle",
-      "лимит": 15,
-      "берём": null,
-      "lang": "english",
-      "intro": "Ролики Джексона Хинкла с ютуба.",
-      "вкл": true
-    },
-    {
-      "имя": "Хайфонг",
-      "url": "https://www.youtube.com/@DannyHaiphongYT/videos",
-      "prefix": "haiphong",
-      "лимит": 15,
-      "берём": null,
-      "lang": "english",
-      "intro": "Ролики Дэнни Хайфонга с ютуба.",
-      "вкл": true
-    },
-    {
-      "имя": "Такер",
-      "url": "https://www.youtube.com/@TuckerCarlson/videos",
-      "prefix": "tucker",
-      "лимит": 15,
-      "берём": null,
-      "lang": "english",
-      "intro": "Ролики Такера Карлсона с ютуба.",
-      "вкл": true
-    },
-    {
-      "имя": "Транзишн",
-      "url": "https://www.youtube.com/@Transition_Protocol/videos",
-      "prefix": "transition",
-      "лимит": 15,
-      "берём": null,
-      "lang": "english",
-      "intro": "Ролики канала Транзишн Протокол с ютуба.",
-      "вкл": true
-    },
-    {
-      "имя": "Вячеслав",
-      "url": "https://www.youtube.com/@1Вячеслав/videos",
-      "prefix": "vyacheslav",
-      "лимит": 15,
-      "берём": null,
-      "lang": "russian",
-      "intro": "Ролики Вячеслава с ютуба.",
-      "вкл": true
-    },
-    {
-      "имя": "Ратбон",
-      "url": "https://www.youtube.com/@Rathbonee/videos",
-      "prefix": "rathbone",
-      "лимит": 15,
-      "берём": null,
-      "lang": "english",
-      "intro": "Ролики Ратбона с ютуба.",
-      "вкл": true
-    },
-    {
-      "имя": "Янг Тёркс",
-      "url": "https://www.youtube.com/@TheYoungTurks/videos",
-      "prefix": "tyt",
-      "лимит": 15,
-      "берём": 3,
-      "lang": "english",
-      "intro": "Ролики Янг Тёркс с ютуба.",
-      "вкл": true
-    },
-    {
-      "имя": "Кэндис Оуэнс",
-      "url": "https://www.youtube.com/@RealCandaceO/videos",
-      "prefix": "candace",
-      "лимит": 15,
-      "берём": 1,
-      "lang": "english",
-      "intro": "Ролики Кэндис Оуэнс с ютуба.",
-      "вкл": true
-    },
-    {
-      "имя": "Нима Альхоршид",
-      "url": "https://www.youtube.com/@dialogueworks01/videos",
-      "prefix": "dialogueworks01",
-      "лимит": 15,
-      "берём": 2,
-      "lang": "english",
-      "intro": "Ролики канала Нима Альхоршид с ютуба.",
-      "вкл": true
-    }
-  ],
-  "ленты_вкл": {
-    "almasirah": true,
-    "ei": true,
-    "strelkov": true
+ "ютуб": [
+  {
+   "имя": "Хинкл",
+   "url": "https://www.youtube.com/@JacksonHinkleOfficial/videos",
+   "prefix": "hinkle",
+   "лимит": 15,
+   "берём": null,
+   "lang": "english",
+   "intro": "Ролики Джексона Хинкла с ютуба.",
+   "вкл": true
   },
-  "телеграм": [
-    {
-      "имя": "Стрелков (Гиркин)",
-      "url": "https://t.me/s/strelkovii",
-      "prefix": "strelkov",
-      "вкл": true
-    }
-  ],
-  "rss": [
-    {
-      "имя": "The Electronic Intifada",
-      "url": "https://electronicintifada.net/rss.xml",
-      "prefix": "ei",
-      "вкл": true
-    },
-    {
-      "имя": "Тегеран Таймс (Иран)",
-      "url": "https://www.tehrantimes.com/rss",
-      "prefix": "tehrantimes",
-      "вкл": true
-    },
-    {
-      "имя": "Мехр (Иран)",
-      "url": "https://en.mehrnews.com/rss",
-      "prefix": "mehr",
-      "вкл": true
-    }
-  ]
+  {
+   "имя": "Хайфонг",
+   "url": "https://www.youtube.com/@DannyHaiphongYT/videos",
+   "prefix": "haiphong",
+   "лимит": 15,
+   "берём": null,
+   "lang": "english",
+   "intro": "Ролики Дэнни Хайфонга с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Такер",
+   "url": "https://www.youtube.com/@TuckerCarlson/videos",
+   "prefix": "tucker",
+   "лимит": 15,
+   "берём": null,
+   "lang": "english",
+   "intro": "Ролики Такера Карлсона с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Транзишн",
+   "url": "https://www.youtube.com/@Transition_Protocol/videos",
+   "prefix": "transition",
+   "лимит": 15,
+   "берём": null,
+   "lang": "english",
+   "intro": "Ролики канала Транзишн Протокол с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Вячеслав",
+   "url": "https://www.youtube.com/@1Вячеслав/videos",
+   "prefix": "vyacheslav",
+   "лимит": 15,
+   "берём": null,
+   "lang": "russian",
+   "intro": "Ролики Вячеслава с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Ратбон",
+   "url": "https://www.youtube.com/@Rathbonee/videos",
+   "prefix": "rathbone",
+   "лимит": 15,
+   "берём": null,
+   "lang": "english",
+   "intro": "Ролики Ратбона с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Янг Тёркс",
+   "url": "https://www.youtube.com/@TheYoungTurks/videos",
+   "prefix": "tyt",
+   "лимит": 15,
+   "берём": 3,
+   "lang": "english",
+   "intro": "Ролики Янг Тёркс с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Кэндис Оуэнс",
+   "url": "https://www.youtube.com/@RealCandaceO/videos",
+   "prefix": "candace",
+   "лимит": 15,
+   "берём": 1,
+   "lang": "english",
+   "intro": "Ролики Кэндис Оуэнс с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Нима Альхоршид",
+   "url": "https://www.youtube.com/@dialogueworks01/videos",
+   "prefix": "dialogueworks01",
+   "лимит": 15,
+   "берём": 2,
+   "lang": "english",
+   "intro": "Ролики канала Нима Альхоршид с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Jackson Hinkl",
+   "url": "https://www.youtube.com/@JacksonHinkl/videos",
+   "prefix": "jacksonhinkl",
+   "лимит": 15,
+   "берём": 2,
+   "lang": "english",
+   "intro": "Ролики канала Jackson Hinkl с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Олег Царёв",
+   "url": "https://www.youtube.com/@OlegTsarovFunClub/videos",
+   "prefix": "olegtsarovfunclu",
+   "лимит": 15,
+   "берём": 2,
+   "lang": "english",
+   "intro": "Ролики канала Олег Царёв с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Jake Shields",
+   "url": "https://www.youtube.com/@fightbackpodcast/videos",
+   "prefix": "fightbackpodcast",
+   "лимит": 15,
+   "берём": 2,
+   "lang": "english",
+   "intro": "Ролики канала Jake Shields с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Колобок",
+   "url": "https://www.youtube.com/@kolobok7777/videos",
+   "prefix": "kolobok7777",
+   "лимит": 15,
+   "берём": 1,
+   "lang": "english",
+   "intro": "Ролики канала Колобок с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Wally Rashid",
+   "url": "https://www.youtube.com/@wallyrashid/videos",
+   "prefix": "wallyrashid",
+   "лимит": 15,
+   "берём": 2,
+   "lang": "english",
+   "intro": "Ролики канала Wally Rashid с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Медея Бенджамин",
+   "url": "https://www.youtube.com/@medeabenjamin6562/videos",
+   "prefix": "medeabenjami",
+   "лимит": 15,
+   "берём": 2,
+   "lang": "english",
+   "intro": "Ролики канала Медея Бенджамин с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Код Пинк",
+   "url": "https://www.youtube.com/@codepinkaction/videos",
+   "prefix": "codepinkacti",
+   "лимит": 15,
+   "берём": 2,
+   "lang": "english",
+   "intro": "Ролики канала Код Пинк с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Rand-T Media",
+   "url": "https://www.youtube.com/@RandTMedia/videos",
+   "prefix": "randtmedia",
+   "лимит": 15,
+   "берём": 2,
+   "lang": "english",
+   "intro": "Ролики канала Rand-T Media с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Tucker Carlson Network",
+   "url": "https://www.youtube.com/@TCNetwork/videos",
+   "prefix": "tcnetwork",
+   "лимит": 15,
+   "берём": 1,
+   "lang": "english",
+   "intro": "Ролики канала Tucker Carlson Network с ютуба.",
+   "вкл": true
+  }
+ ],
+ "ленты_вкл": {
+  "almasirah": true,
+  "ei": true,
+  "strelkov": true
+ },
+ "телеграм": [
+  {
+   "имя": "Стрелков (Гиркин)",
+   "url": "https://t.me/s/strelkovii",
+   "prefix": "strelkov",
+   "вкл": true
+  }
+ ],
+ "rss": [
+  {
+   "имя": "The Electronic Intifada",
+   "url": "https://electronicintifada.net/rss.xml",
+   "prefix": "ei",
+   "вкл": false
+  },
+  {
+   "имя": "Тегеран Таймс (Иран)",
+   "url": "https://www.tehrantimes.com/rss",
+   "prefix": "tehrantimes",
+   "вкл": true
+  },
+  {
+   "имя": "Мехр (Иран)",
+   "url": "https://en.mehrnews.com/rss",
+   "prefix": "mehr",
+   "вкл": true
+  }
+ ]
 }
