@@ -1565,17 +1565,36 @@ def yt_channel_items(ch, seen):
         print(f"[{ch['name']} новый ролик] {title[:60]}", file=sys.stderr)
         path = os.path.join(YT_WORKDIR, f"{vid}.m4a")
         r = None
-        if not os.path.exists(path):
+        for попытка in (1, 2):
+            if os.path.exists(path):
+                break
             r = subprocess.run(
                 # 2026-08-25: ютуб перекрыл прямую отдачу формата 140 —
                 # без движка JavaScript он даёт только потоковые форматы,
                 # и качалка падала с «403 Forbidden» (все 65 роликов мимо).
                 # bestaudio берёт что дают; ffmpeg потом читает по содержимому,
                 # а не по расширению файла.
+                # --retries/--fragment-retries: ютуб придушивает скорость и
+                # рвёт соединение (автор 2026-09-11: «надо повторить попытку») —
+                # даём yt-dlp самому переподключаться, а при полном провале
+                # делаем вторую попытку ниже.
                 [YTDLP, *YTDLP_JS, "-f", "bestaudio[ext=m4a]/bestaudio",
+                 "--retries", "5", "--fragment-retries", "10",
+                 "--socket-timeout", "30",
                  "-o", path, f"https://www.youtube.com/watch?v={vid}"],
                 capture_output=True, text=True, timeout=900,
             )
+            if os.path.exists(path):
+                break
+            # премьера/платное — повтор не поможет, не тратим на него время
+            if re.search(r"Premieres in|is upcoming|will begin|scheduled|"
+                         r"members-only|join this channel|to members",
+                         (r.stderr or ""), re.I):
+                break
+            if попытка == 1:
+                print("  звук не скачался — пробую ещё раз через 5 с",
+                      file=sys.stderr)
+                time.sleep(5)
         if os.path.exists(path):
             # 2026-08-08, решение автора: НИКАКИХ обрезок. Раньше длинные
             # ролики резались до 20 минут — «смысл сказанного Такером
@@ -1599,7 +1618,8 @@ def yt_channel_items(ch, seen):
                       "пропуск навсегда", file=sys.stderr)
             else:
                 _стат_плюс("без_звука", ch["name"])
-                print("  звук не скачался — пропуск", file=sys.stderr)
+                print("  звук не скачался (и повтор не помог) — пропуск",
+                      file=sys.stderr)
     if not audios:
         return []
     # 2) распознаём одним заходом (модель загружается один раз).
