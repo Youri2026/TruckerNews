@@ -337,8 +337,15 @@ def страница(итог=None):
     к = [f"<style>{СТИЛЬ}</style>",
          "<meta name='viewport' content='width=device-width,initial-scale=1'>",
          "<title>Пульт новостей</title>"]
-    if идёт:   # пока выпуск идёт — страница сама обновляется каждые 8 секунд
-        к.append("<meta http-equiv='refresh' content='8'>")
+    if идёт:
+        # Пока выпуск идёт — обновляем страницу каждые 8 сек (полоса прогресса).
+        # НО не перезагружаем, пока пользователь печатает в поле (иначе стирает
+        # набранное — автор 2026-09-11: «постоянно перезагружал окно, не давал
+        # вставить ссылки»). Проверяем активный элемент перед перезагрузкой.
+        к.append(
+            "<script>setInterval(function(){var a=document.activeElement;"
+            "if(!a||!/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))"
+            "location.reload();},8000);</script>")
     к.append("<h1>Пульт новостей</h1>")
     к.append("<div class='когда'>Дайджест в телеграм — расписание и каналы</div>")
     if итог:
