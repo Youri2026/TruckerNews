@@ -179,6 +179,36 @@
    "lang": "english",
    "intro": "Ролики канала Tucker Carlson Network с ютуба.",
    "вкл": true
+  },
+  {
+   "имя": "Glenn Greenwald",
+   "url": "https://www.youtube.com/@GlennGreenwald/videos",
+   "prefix": "glenngreenwald",
+   "лимит": 15,
+   "берём": 1,
+   "lang": "english",
+   "intro": "Ролики канала Glenn Greenwald с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Джо Роган",
+   "url": "https://www.youtube.com/@joerogan/videos",
+   "prefix": "joerogan",
+   "лимит": 15,
+   "берём": 1,
+   "lang": "english",
+   "intro": "Ролики канала Джо Роган с ютуба.",
+   "вкл": true
+  },
+  {
+   "имя": "Кристина",
+   "url": "https://www.youtube.com/@kriscalifornia/videos",
+   "prefix": "kriscalifornia",
+   "лимит": 15,
+   "берём": null,
+   "lang": "english",
+   "intro": "Ролики канала Кристина с ютуба.",
+   "вкл": true
   }
  ],
  "ленты_вкл": {
