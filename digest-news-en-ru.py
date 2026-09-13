@@ -71,6 +71,31 @@ IRAN_SKIP = re.compile(
     r"about-us|contact-us|privacy|terms|advertise|sitemap|rss|/tags?/", re.I
 )
 
+# Спорт автору не нужен (заказ 2026-09-13). Отсекаем ПО ЗАГОЛОВКУ И АДРЕСУ —
+# до скачивания тела и до пересказа, чтобы не тратить время и видеокарту.
+СПОРТ_АДРЕС = re.compile(
+    r"/sports?(?:/|$)|/football|/soccer|/olympics?|/wrestling", re.I)
+СПОРТ_СЛОВА = re.compile(
+    r"\b(?:football|soccer|world\s+cup|olympic\w*|paralympic\w*|wrestl\w+|"
+    r"volleyball|basketball|futsal|handball|taekwondo|judo|karate|boxing|"
+    r"kickbox\w*|mma|ufc|bellator|marathon|athletics|gymnast\w+|"
+    r"weightlift\w+|table\s+tennis|badminton|cricket|rugby|nba|nfl|fifa|"
+    r"uefa|premier\s+league|la\s+liga|bundesliga|formula\s+1|grand\s+prix|"
+    # «championship» само по себе слишком широко — режет «championship of
+    # ideas» (статья про СМИ). Берём только в связке (проверка 2026-09-13).
+    r"world\s+championship|asian\s+games|tournament\w*|"
+    r"goalkeeper|midfielder|striker|"
+    r"футбол\w*|хоккей\w*|баскетбол\w*|волейбол\w*|гандбол\w*|"
+    r"олимпиад\w*|олимпийск\w*|чемпионат\w*|турнир\w*|сборн(?:ая|ой|ую)|"
+    r"матч\w*|вратар\w*|дзюдо|каратэ|бокс(?:ёр|ер|а|у)?|теннис\w*)\b",
+    re.I)
+
+
+def это_спорт(заголовок="", url=""):
+    """Спортивная новость? (автор 2026-09-13: «исключи спортивные новости»)."""
+    return bool(СПОРТ_АДРЕС.search(url or "")
+                or СПОРТ_СЛОВА.search(заголовок or ""))
+
 # «Аль-Масира» (англ.), рупор Ансар Алла (автор одобрил 2026-07-24). Их сервер
 # требует обхода SSL, а в тексте статьи первый абзац — служебная «шапка».
 ALMASIRAH_LIST = "https://english.almasirah.net.ye/"
@@ -322,6 +347,7 @@ HEARD_KEEP_DAYS = 3       # сколько дней помнить сюжет (�
     "без_звука": {},        # ролик СКАЧАЛСЯ, но в файле нет звуковой дорожки
     "задушен": {},          # ютуб придушил скорость/рвал соединение — скачать не дал
     "не_скачалось": {},     # не удалось скачать/открыть — 403, сеть (по источникам)
+    "спорт": {},            # отброшено как спортивное (автор 2026-09-13)
     "ошибок_обработки": {}, # выпало на обработке: коротко/нет расшифровки/сбой
     "пустой_пересказ": {},  # тело было НОРМАЛЬНОЕ, но T-Pro вернул пусто — вот это
                             # и есть «модель поперхнулась», о чём просил автор 08.09
@@ -878,6 +904,10 @@ def текст_сводки(sent_total):
         строки.append(f"Не удалось скачать (403/сеть/иное): "
                       f"{sum(СТАТ['не_скачалось'].values())} — "
                       f"{перечень(СТАТ['не_скачалось'])}")
+    if СТАТ["спорт"]:
+        строки.append(f"Спорт (отброшен, вы его не слушаете): "
+                      f"{sum(СТАТ['спорт'].values())} — "
+                      f"{перечень(СТАТ['спорт'])}")
     if СТАТ["ошибок_обработки"]:
         строки.append(f"Коротко/битые (фотозаметки, нет расшифровки): "
                       f"{sum(СТАТ['ошибок_обработки'].values())} — "
@@ -904,6 +934,7 @@ def сохранить_статистику(sent_total):
         "без_звука": СТАТ["без_звука"],
         "задушен": СТАТ["задушен"],
         "не_скачалось": СТАТ["не_скачалось"],
+        "спорт": СТАТ["спорт"],
         "ошибок_обработки": СТАТ["ошибок_обработки"],
         "пустой_пересказ": СТАТ["пустой_пересказ"],
         "событий": СТАТ["событий"], "новых": СТАТ["новых"],
@@ -1618,6 +1649,17 @@ def yt_channel_items(ch, seen):
         for vid, title in yt_latest(ch)
         if ch["prefix"] + ":" + vid not in seen
     ]
+    # спорт отсекаем ПО ЗАГОЛОВКУ, до скачивания звука (автор 2026-09-13):
+    # распознавание часового ролика про футбол — впустую занятая видеокарта
+    без_спорта = []
+    for vid, title, iid in new:
+        if это_спорт(title):
+            seen[iid] = date.today().isoformat()
+            _стат_плюс("спорт", ch["name"])
+            print(f"  спорт — пропуск: {title[:60]}", file=sys.stderr)
+            continue
+        без_спорта.append((vid, title, iid))
+    new = без_спорта
     if not new:
         return []
     # отсечка «берём только последние»: список идёт от свежих к старым,
@@ -1829,14 +1871,24 @@ def collect_new():
         iid = "almasirah:" + aid
         if iid in seen:
             continue
+        if это_спорт(url=url):
+            seen[iid] = date.today().isoformat()
+            _стат_плюс("спорт", "Аль-Масира")
+            continue
         print(f"[Аль-Масира новая] {url[:70]}", file=sys.stderr)
         try:
             h = fetch_insecure(url)
+            заголовок = article_title(h)
+            if это_спорт(заголовок, url):
+                seen[iid] = date.today().isoformat()
+                _стат_плюс("спорт", "Аль-Масира")
+                print(f"  спорт — пропуск: {заголовок[:60]}", file=sys.stderr)
+                continue
             body = almasirah_body(h)
             if len(body) < 200:
                 _стат_плюс("ошибок_обработки", "Аль-Масира")
                 continue
-            plain = ask_plain(article_title(h), body)
+            plain = ask_plain(заголовок, body)
             if not plain:
                 _стат_плюс("пустой_пересказ", "Аль-Масира")
                 continue
@@ -1857,14 +1909,27 @@ def collect_new():
             iid = лента["prefix"] + ":" + slug
             if iid in seen:
                 continue
+            if это_спорт(url=url):          # спорт видно уже по адресу
+                seen[iid] = date.today().isoformat()
+                _стат_плюс("спорт", лента["имя"])
+                print(f"  спорт (по адресу) — пропуск: {slug[:40]}",
+                      file=sys.stderr)
+                continue
             print(f"[{лента['имя']} новая] {slug[:50]}", file=sys.stderr)
             try:
                 h = fetch_insecure(url)
+                заголовок = article_title(h)
+                if это_спорт(заголовок, url):
+                    seen[iid] = date.today().isoformat()
+                    _стат_плюс("спорт", лента["имя"])
+                    print(f"  спорт — пропуск: {заголовок[:60]}",
+                          file=sys.stderr)
+                    continue
                 body = ei_body(h)
                 if len(body) < 200:
                     _стат_плюс("ошибок_обработки", лента["имя"])
                     continue
-                plain = ask_plain(article_title(h), body)
+                plain = ask_plain(заголовок, body)
                 if not plain:
                     _стат_плюс("пустой_пересказ", лента["имя"])
                     continue
