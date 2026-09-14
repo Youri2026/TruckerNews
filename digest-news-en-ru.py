@@ -81,9 +81,13 @@ IRAN_SKIP = re.compile(
     r"kickbox\w*|mma|ufc|bellator|marathon|athletics|gymnast\w+|"
     r"weightlift\w+|table\s+tennis|badminton|cricket|rugby|nba|nfl|fifa|"
     r"uefa|premier\s+league|la\s+liga|bundesliga|formula\s+1|grand\s+prix|"
-    # «championship» само по себе слишком широко — режет «championship of
-    # ideas» (статья про СМИ). Берём только в связке (проверка 2026-09-13).
-    r"world\s+championship|asian\s+games|tournament\w*|"
+    # 2026-09-14: «championship» ВЕРНУЛИ. Вчера я сузил его до «world
+    # championship», подстроившись под ВЫДУМАННЫЙ пример «championship of
+    # ideas» — и в щель тут же пролезла «CAFA Championship» (женский футбол
+    # до 17 лет). В живых заголовках «championship» — всегда спорт.
+    r"championship\w*|asian\s+games|tournament\w*|"
+    r"cafa|afc|avc|aiba|\bu-?(?:1[5-9]|2[0-3])\b|"
+    r"qualifier\w*|friendly\s+match|national\s+team|"
     r"goalkeeper|midfielder|striker|"
     r"футбол\w*|хоккей\w*|баскетбол\w*|волейбол\w*|гандбол\w*|"
     r"олимпиад\w*|олимпийск\w*|чемпионат\w*|турнир\w*|сборн(?:ая|ой|ую)|"
@@ -95,6 +99,18 @@ def это_спорт(заголовок="", url=""):
     """Спортивная новость? (автор 2026-09-13: «исключи спортивные новости»)."""
     return bool(СПОРТ_АДРЕС.search(url or "")
                 or СПОРТ_СЛОВА.search(заголовок or ""))
+
+
+def это_спорт_пересказ(текст, порог=2):
+    """ВТОРОЙ РУБЕЖ: спортивный ли готовый ПЕРЕСКАЗ по-русски.
+
+    Нужен потому, что по английскому заголовку спорт виден не всегда: 2026-09-14
+    в выпуск пролезла «CAFA Championship» — в пересказе это уже прямым текстом
+    «сборная Ирана по футболу… чемпионат… матч». Требуем НЕСКОЛЬКО разных
+    примет, чтобы одно случайное слово («матч») не выбросило обычную новость.
+    """
+    найдено = {м.group(0).lower() for м in СПОРТ_СЛОВА.finditer(текст or "")}
+    return len(найдено) >= порог
 
 # «Аль-Масира» (англ.), рупор Ансар Алла (автор одобрил 2026-07-24). Их сервер
 # требует обхода SSL, а в тексте статьи первый абзац — служебная «шапка».
@@ -1870,7 +1886,12 @@ def yt_channel_items(ch, seen):
                 _стат_плюс("ошибок_обработки", ch["name"])  # расшифровка коротка
             else:
                 plain = ask_video(title, text)
-                if plain:
+                if plain and это_спорт_пересказ(plain):
+                    seen[iid] = date.today().isoformat()
+                    _стат_плюс("спорт", ch["name"])
+                    print("  спорт (видно по пересказу) — пропуск",
+                          file=sys.stderr)
+                elif plain:
                     items.append((guard_text(plain), iid))
                 else:
                     _стат_плюс("пустой_пересказ", ch["name"])  # T-Pro дал пусто
@@ -1933,6 +1954,10 @@ def collect_new():
                 if not plain:
                     _стат_плюс("пустой_пересказ", ag["name"])
                     continue
+                if это_спорт_пересказ(plain):
+                    seen[iid] = date.today().isoformat()
+                    _стат_плюс("спорт", ag["name"])
+                    continue
                 ag_items.append((guard_text(plain), iid))
             except Exception as e:
                 _стат_плюс("не_скачалось", ag["name"])
@@ -1968,6 +1993,11 @@ def collect_new():
             plain = ask_plain(заголовок, body)
             if not plain:
                 _стат_плюс("пустой_пересказ", "Аль-Масира")
+                continue
+            if это_спорт_пересказ(plain):
+                seen[iid] = date.today().isoformat()
+                _стат_плюс("спорт", "Аль-Масира")
+                print("  спорт (видно по пересказу) — пропуск", file=sys.stderr)
                 continue
             alm_items.append((guard_text(plain), iid))
         except Exception as e:
@@ -2009,6 +2039,12 @@ def collect_new():
                 plain = ask_plain(заголовок, body)
                 if not plain:
                     _стат_плюс("пустой_пересказ", лента["имя"])
+                    continue
+                if это_спорт_пересказ(plain):   # второй рубеж, по-русски
+                    seen[iid] = date.today().isoformat()
+                    _стат_плюс("спорт", лента["имя"])
+                    print(f"  спорт (видно по пересказу) — пропуск",
+                          file=sys.stderr)
                     continue
                 rss_itms.append((guard_text(plain), iid))
             except Exception as e:
@@ -2067,6 +2103,10 @@ def collect_new():
                 plain = ask_channel(post)  # сохраняем сарказм/иронию автора
                 if not plain:
                     _стат_плюс("пустой_пересказ", name)
+                    continue
+                if это_спорт_пересказ(plain):
+                    seen[iid] = date.today().isoformat()
+                    _стат_плюс("спорт", name)
                     continue
                 ch_items.append((guard_text(plain), iid))
             except Exception as e:
