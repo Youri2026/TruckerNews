@@ -209,6 +209,16 @@
    "lang": "english",
    "intro": "Ролики канала Кристина с ютуба.",
    "вкл": true
+  },
+  {
+   "имя": "The Diary",
+   "url": "https://www.youtube.com/@TheDiaryOfACEO/videos",
+   "prefix": "thediaryofaceo",
+   "лимит": 15,
+   "берём": 1,
+   "lang": "english",
+   "intro": "Ролики канала The Diary с ютуба.",
+   "вкл": true
   }
  ],
  "ленты_вкл": {
@@ -225,12 +235,6 @@
   }
  ],
  "rss": [
-  {
-   "имя": "The Electronic Intifada",
-   "url": "https://electronicintifada.net/rss.xml",
-   "prefix": "ei",
-   "вкл": false
-  },
   {
    "имя": "Тегеран Таймс (Иран)",
    "url": "https://www.tehrantimes.com/rss",

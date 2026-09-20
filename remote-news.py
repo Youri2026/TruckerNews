@@ -15,6 +15,7 @@
     Стрелков). Сам скрипт новостей читает этот конфиг при каждом прогоне.
 """
 import html
+from datetime import datetime, timedelta
 import json
 import os
 import re
@@ -24,7 +25,10 @@ import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-АДРЕС = "127.0.0.1"
+# На Спарке слушаем все сети: его Tailscale работает в пользовательском
+# режиме и сам заворачивает входящие на местный порт. На 5090 —
+# только свой адрес в Tailscale, как было.
+АДРЕС = "0.0.0.0" if os.path.isdir("/home/user/fish/venv") else "127.0.0.1"
 ПОРТ = 8091
 КОНФИГ = os.path.expanduser("~/news-config.json")
 СКРИПТ = "/home/user/bin/digest-news-en-ru.py"
@@ -154,7 +158,7 @@ def записать_расписание(часы, дни):
     Возвращает (успех, часы_норм). Часы приводятся к 0–23 (полночь 24→0),
     недопустимые отбрасываются. Успех = cron реально принял новый список
     (раньше при плохом часе, например 24, cron молча отвергал весь файл, а
-    пульт всё равно рапортовал «сохранено»)."""
+    пульт всё равно рапортовал «сохранено» — 2026-09-06)."""
     норм = []
     for ч in часы:
         if not str(ч).isdigit():
@@ -282,6 +286,67 @@ def монитор_html():
     return "".join(к), True
 
 
+КОПИЛКА = "/home/user/news-stats-history.json"   # все прогоны (45 дней)
+
+
+def за_месяц_html(дней=30):
+    """Блок «За последние N дней» — сумма всех прогонов скользящего окна.
+
+    Заказ автора 2026-09-14: «сводка должна быть как минимум за последний месяц,
+    не календарный, а как на HF» — то есть за последние 30 дней со сдвигом,
+    а не «с первого числа».
+    """
+    try:
+        with open(КОПИЛКА, encoding="utf-8") as f:
+            история = json.load(f)
+        if not isinstance(история, list):
+            return ""
+    except Exception:
+        return ""
+    порог = (datetime.now() - timedelta(days=дней)).isoformat()
+    окно = [з for з in история if (з.get("время") or "") >= порог]
+    if not окно:
+        return ""
+
+    def сумма(ключ):
+        return sum(int(з.get(ключ) or 0) for з in окно)
+
+    def свод(ключ):
+        итог = {}
+        for з in окно:
+            for имя, n in (з.get(ключ) or {}).items():
+                итог[имя] = итог.get(имя, 0) + int(n or 0)
+        return итог
+
+    def строки_по(ключ, подпись):
+        d = свод(ключ)
+        if not d:
+            return ""
+        сп = "".join(
+            f"<div class='когда' style='margin:2px 0'>• "
+            f"{html.escape(str(имя))}: {n}</div>"
+            for имя, n in sorted(d.items(), key=lambda x: -x[1]))
+        return (f"<div style='margin-top:6px'>{подпись}: "
+                f"<b>{sum(d.values())}</b></div>{сп}")
+
+    с_какого = min(з.get("время", "") for з in окно)[:10]
+    return (
+        f"<div class='раздел'>За последние {дней} дней</div>"
+        "<div class='мон мон-простой'>"
+        f"<div class='когда' style='margin:0'>выпусков: <b>{len(окно)}</b>, "
+        f"считаем с {html.escape(с_какого)}</div>"
+        + строки_по("принёс_первым", "Кто принёс новость")
+        + строки_по("источники", "Скачано материалов")
+        + строки_по("спорт", "Спорт (отброшен)")
+        + f"<div style='margin-top:6px'>Событий: <b>{сумма('событий')}</b> — "
+        f"новых <b>{сумма('новых')}</b>, "
+        f"дополнений <b>{сумма('дополнений')}</b>, "
+        f"повторов <b>{сумма('повторов')}</b></div>"
+        f"<div style='margin-top:4px'>Отправлено голосовых: "
+        f"<b>{сумма('отправлено')}</b></div>"
+        "</div>")
+
+
 def статистика_html():
     """Блок «Статистика последнего прогона» — читает файл, что пишет
     digest-news (заказ автора 2026-09-08). Пусто, если прогонов ещё не было."""
@@ -322,6 +387,7 @@ def статистика_html():
         + перечень_html("спорт", "Спорт (отброшен)")
         + перечень_html("ошибок_обработки", "Коротко/битые (фотозаметки)")
         + перечень_html("пустой_пересказ", "⚠ Пустой пересказ от модели")
+        + перечень_html("принёс_первым", "Кто принёс новость")
         + f"<div style='margin-top:6px'>Событий: <b>{d.get('событий', 0)}</b> — "
         f"новых <b>{d.get('новых', 0)}</b>, "
         f"дополнений к старому <b>{d.get('дополнений', 0)}</b>, "
@@ -332,6 +398,48 @@ def статистика_html():
 
 
 # ── СТРАНИЦА ──────────────────────────────────────────────────────
+ПАМЯТЬ_УСЛЫШАННОГО = os.path.expanduser("~/.rt-news-seen.json")
+
+
+def _последние_по_источникам():
+    """{приставка: последняя дата, когда с источника что-то взяли}.
+    Память чистится через три недели, поэтому давно молчащих там нет."""
+    try:
+        with open(ПАМЯТЬ_УСЛЫШАННОГО, encoding="utf-8") as f:
+            память = json.load(f)
+    except Exception:
+        return {}
+    итог = {}
+    for ключ, дата in память.items():
+        приставка = ключ.split(":", 1)[0]
+        if not приставка:
+            continue
+        if дата > итог.get(приставка, ""):
+            итог[приставка] = дата
+    return итог
+
+
+def тишина_канала(приставка, последние):
+    """Строка «нет новых роликов с такого-то» — заказ автора 2026-09-19.
+    Раньше по Пульту нельзя было понять, молчит канал или мы его теряем."""
+    дата = последние.get(приставка)
+    сегодня = datetime.now().date()
+    if not дата:
+        return "за три недели ничего не приносил"
+    try:
+        д = datetime.strptime(дата, "%Y-%m-%d").date()
+    except ValueError:
+        return ""
+    дней = (сегодня - д).days
+    показ = д.strftime("%d.%m")
+    if дней <= 0:
+        return "приносил сегодня"
+    if дней == 1:
+        return "приносил вчера"
+    след = (д + timedelta(days=1)).strftime("%d.%m")
+    return f"новых роликов нет с {след} (последний взят {показ})"
+
+
 def страница(итог=None):
     cfg = читать_конфиг()
     часы, дни = читать_расписание()
@@ -354,6 +462,7 @@ def страница(итог=None):
         к.append(f"<div class='итог'>{html.escape(итог)}</div>")
     к.append(монитор)
     к.append(статистика_html())
+    к.append(за_месяц_html())
 
     # ── Расписание ──
     к.append("<div class='раздел'>Когда выходят новости</div>")
@@ -371,6 +480,9 @@ def страница(итог=None):
 
     # ── Ютуб-каналы ──
     к.append("<div class='раздел'>Ютуб-каналы</div>")
+    # когда каждый источник в последний раз что-то принёс — чтобы с одного
+    # взгляда видеть, молчит канал или мы его теряем (автор 2026-09-19)
+    _последние = _последние_по_источникам()
     for i, c in enumerate(cfg.get("ютуб", [])):
         вкл = c.get("вкл", True)
         берём = c.get("берём")
@@ -387,19 +499,24 @@ def страница(итог=None):
             f"{'🟢' if вкл else '⚪'} {html.escape(c.get('имя', '?'))}</div>"
             f"<form method='post' action='/kanal-toggle'>"
             f"<input type='hidden' name='i' value='{i}'>"
+            f"<input type='hidden' name='p' value='{html.escape(str(c.get('prefix','')))}'>"
             f"<button class='тумблер {'вкл' if вкл else 'выкл'}'>"
             f"{'вкл' if вкл else 'выкл'}</button></form>"
             f"<form method='post' action='/kanal-del' "
             "onsubmit=\"return confirm('Удалить канал совсем?')\">"
             f"<input type='hidden' name='i' value='{i}'>"
+            f"<input type='hidden' name='p' value='{html.escape(str(c.get('prefix','')))}'>"
             f"<button class='крестик'>✕</button></form>"
             "</div>"
             f"<div class='когда' style='margin:1px 0 4px 4px'>"
             f"<a href='{html.escape(ю_url)}' target='_blank' rel='noopener' "
             f"style='color:#7ab7ff;text-decoration:none'>"
-            f"{html.escape(ю_метка)}</a></div>"
+            f"{html.escape(ю_метка)}</a>"
+            f" · {html.escape(тишина_канала(str(c.get('prefix','')), _последние))}"
+            f"</div>"
             f"<form method='post' action='/kanal-max' class='макс'>"
             f"<input type='hidden' name='i' value='{i}'>"
+            f"<input type='hidden' name='p' value='{html.escape(str(c.get('prefix','')))}'>"
             "<span>брать последних:</span>"
             f"<input type='number' name='n' min='0' value='{знач}' "
             "placeholder='все'>"
@@ -437,11 +554,13 @@ def страница(итог=None):
             f"{'🟢' if вкл else '⚪'} {html.escape(c.get('имя', '?'))}</div>"
             f"<form method='post' action='/rss-toggle'>"
             f"<input type='hidden' name='i' value='{i}'>"
+            f"<input type='hidden' name='p' value='{html.escape(str(c.get('prefix','')))}'>"
             f"<button class='тумблер {'вкл' if вкл else 'выкл'}'>"
             f"{'вкл' if вкл else 'выкл'}</button></form>"
             f"<form method='post' action='/rss-del' "
             "onsubmit=\"return confirm('Убрать RSS-ленту?')\">"
             f"<input type='hidden' name='i' value='{i}'>"
+            f"<input type='hidden' name='p' value='{html.escape(str(c.get('prefix','')))}'>"
             f"<button class='крестик'>✕</button></form>"
             "</div>")
     к.append("<div class='когда' style='margin-top:10px'>Добавить RSS-ленту "
@@ -463,11 +582,13 @@ def страница(итог=None):
             f"{'🟢' if вкл else '⚪'} {html.escape(c.get('имя', '?'))}</div>"
             f"<form method='post' action='/tg-toggle'>"
             f"<input type='hidden' name='i' value='{i}'>"
+            f"<input type='hidden' name='p' value='{html.escape(str(c.get('prefix','')))}'>"
             f"<button class='тумблер {'вкл' if вкл else 'выкл'}'>"
             f"{'вкл' if вкл else 'выкл'}</button></form>"
             f"<form method='post' action='/tg-del' "
             "onsubmit=\"return confirm('Убрать телеграм-канал?')\">"
             f"<input type='hidden' name='i' value='{i}'>"
+            f"<input type='hidden' name='p' value='{html.escape(str(c.get('prefix','')))}'>"
             f"<button class='крестик'>✕</button></form>"
             "</div>")
     к.append("<div class='когда' style='margin-top:10px'>Добавить "
@@ -485,6 +606,17 @@ def страница(итог=None):
              "</form>"
              "<div class='когда'>Пустит новостной прогон вручную (идёт "
              "полчаса-час, голосовые придут в телеграм сами).</div>")
+
+    # --- пересказ ролика по ссылке (заказ автора 18.09.2026) ---
+    к.append("<div class='раздел'>Перевести ролик</div>")
+    к.append("<form method='post' action='/rolik'>"
+             "<input name='ssylka' placeholder='ссылка на ролик' "
+             "style='width:100%;box-sizing:border-box;margin-bottom:8px'>"
+             "<button class='кнопка'>Пересказать по-русски</button></form>")
+    к.append(f"<div class='когда'>Скачает, распознает речь, подробно "
+             f"перескажет по-русски и пришлёт голосовым в телеграм — "
+             f"только тебе, в канал не попадёт.<br>Сейчас: "
+             f"{пересказ_состояние()}</div>")
     return "".join(к).encode()
 
 
@@ -539,13 +671,31 @@ def добавить_канал(поля):
     return f"канал «{имя}» добавлен"
 
 
+def _найти(сп, поля):
+    """Номер строки по ЯРЛЫКУ канала (prefix), а не по её месту в списке.
+
+    Почему: 2026-09-14 у автора из настроек пропал «Тегеран Таймс». Разбор:
+    удаление шло ПО НОМЕРУ строки. автор удалил «Электронную интифаду» —
+    список сдвинулся, и следующее нажатие (страница сама обновляется раз в
+    8 секунд, номера на ней уже устарели) снесло не ту ленту. По ярлыку
+    такое невозможно: на устаревшей странице ярлык либо найдётся тот самый,
+    либо не найдётся вовсе — и тогда НИЧЕГО не удаляем.
+    """
+    ярлык = (поля.get("p", [""])[0] or "").strip()
+    if ярлык:
+        for н, эл in enumerate(сп):
+            if str(эл.get("prefix", "")) == ярлык:
+                return н
+        return -1
+    return -1
+
+
 def удалить_канал(поля):
-    try:
-        i = int(поля.get("i", ["-1"])[0])
-    except Exception:
-        return "канал не выбран"
     cfg = читать_конфиг()
     ю = cfg.get("ютуб", [])
+    i = _найти(ю, поля)
+    if i < 0:
+        return "канал не найден — обнови страницу"
     if 0 <= i < len(ю):
         имя = ю[i].get("имя", "?")
         del ю[i]
@@ -555,12 +705,9 @@ def удалить_канал(поля):
 
 
 def тумблер_канала(поля):
-    try:
-        i = int(поля.get("i", ["-1"])[0])
-    except Exception:
-        return "канал не выбран"
     cfg = читать_конфиг()
     ю = cfg.get("ютуб", [])
+    i = _найти(ю, поля)
     if 0 <= i < len(ю):
         ю[i]["вкл"] = not ю[i].get("вкл", True)
         писать_конфиг(cfg)
@@ -570,15 +717,12 @@ def тумблер_канала(поля):
 
 def макс_канала(поля):
     """Сколько последних выпусков брать: число → берём=N, пусто/0 → все."""
-    try:
-        i = int(поля.get("i", ["-1"])[0])
-    except Exception:
-        return "канал не выбран"
     n_сыр = (поля.get("n", [""])[0]).strip()
     cfg = читать_конфиг()
     ю = cfg.get("ютуб", [])
+    i = _найти(ю, поля)
     if not (0 <= i < len(ю)):
-        return "канал не найден"
+        return "канал не найден — обнови страницу"
     if n_сыр and n_сыр.isdigit() and int(n_сыр) > 0:
         ю[i]["берём"] = int(n_сыр)
         весть = f"брать последних: {int(n_сыр)}"
@@ -653,15 +797,13 @@ def добавить_rss(поля):
 
 
 def _список_действие(поля, ключ_списка, действие):
-    """Общая логика удалить/тумблер для списков «телеграм» и «rss»."""
-    try:
-        i = int(поля.get("i", ["-1"])[0])
-    except Exception:
-        return "не выбрано"
+    """Общая логика удалить/тумблер для списков «телеграм» и «rss».
+    Ищем по ЯРЛЫКУ (см. _найти) — по номеру строки нельзя, снесёт не ту."""
     cfg = читать_конфиг()
     сп = cfg.get(ключ_списка, [])
+    i = _найти(сп, поля)
     if not (0 <= i < len(сп)):
-        return "не найдено"
+        return "не найдено — обнови страницу"
     имя = сп[i].get("имя", "?")
     if действие == "del":
         del сп[i]
@@ -698,6 +840,50 @@ def запустить_сейчас():
                          stdout=лог, stderr=лог, start_new_session=True)
         return ("запускаю выпуск — идёт полчаса-час; голосовые придут "
                 "в телеграм сами")
+    except Exception as e:
+        return f"сбой запуска: {str(e)[:120]}"
+
+
+ПЕРЕСКАЗ_СКРИПТ = "/home/user/bin/pereskaz-rolika.py"
+ПЕРЕСКАЗ_СОСТОЯНИЕ = "/home/user/pereskaz-rolika.json"
+
+
+def _пересказ_идёт():
+    try:
+        out = subprocess.run(["pgrep", "-f", "[p]ereskaz-rolika.py"],
+                             capture_output=True, text=True).stdout.strip()
+        return bool(out)
+    except Exception:
+        return False
+
+
+def пересказ_состояние():
+    """Строка о том, чем занят пересказ (её показываем на страничке)."""
+    try:
+        with open(ПЕРЕСКАЗ_СОСТОЯНИЕ, encoding="utf-8") as f:
+            d = json.load(f)
+        строка = f"{d.get('этап','')} {d.get('подробности','')}".strip()
+        когда = (d.get("время") or "")[11:16]
+        идёт = " (идёт)" if _пересказ_идёт() else ""
+        return f"{когда} — {строка}{идёт}"
+    except Exception:
+        return "ещё ни разу не пользовались"
+
+
+def перевести_ролик(поля):
+    """Заказ автора 2026-09-18: сбросил ссылку — получил подробный пересказ
+    по-русски голосовым в телеграм."""
+    ссылка = (поля.get("ssylka") or [""])[0].strip()
+    if not ссылка.startswith(("http://", "https://")):
+        return "это не ссылка — нужна ссылка на ролик целиком"
+    if _пересказ_идёт():
+        return "один пересказ уже делается — дождись его, потом закажи следующий"
+    try:
+        лог = open("/home/user/pereskaz-rolika.log", "a")
+        subprocess.Popen(["/usr/bin/python3", ПЕРЕСКАЗ_СКРИПТ, ссылка],
+                         stdout=лог, stderr=лог, start_new_session=True)
+        return ("взял ссылку в работу — пересказ придёт голосовым в телеграм; "
+                "на часовой ролик уходит около получаса")
     except Exception as e:
         return f"сбой запуска: {str(e)[:120]}"
 
@@ -747,6 +933,8 @@ class Пульт(BaseHTTPRequestHandler):
             итог = _список_действие(поля, "rss", "toggle")
         elif путь == "/run-now":
             итог = запустить_сейчас()
+        elif путь == "/rolik":
+            итог = перевести_ролик(поля)
         else:
             итог = None
         self._ответ(страница(итог))

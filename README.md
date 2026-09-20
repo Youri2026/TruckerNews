@@ -162,6 +162,44 @@ from the phone.** A custom scraper is only needed for sites without RSS.*
 расшифровку полегче или запускать на процессоре, — но выпуск будет
 собираться заметно дольше.*
 
+## Выпуск на других языках / Other languages
+
+Один и тот же выпуск уходит **в свои телеграм-каналы на других языках** —
+каждый своим голосом. Настройка в `news-channels.json` (образец:
+`channels.example.json`): номер канала и имя голоса на каждый язык.
+
+Текст на другом языке пишется **с оригинала источника**, а не переводом с
+русского. Разница не пустячная: при цепочке английский → русский →
+английский ошибки складываются, и канал получает пересказ пересказа.
+Русский выпуск служит только **планом** — он решает, что считать событием,
+что уже звучало и в каком порядке рассказывать, а факты, имена и
+формулировки берутся из исходного материала. Если источник русскоязычный,
+оригинал русский, и перевод остаётся ровно один.
+
+Для этого конвейер хранит оригинал каждого источника до конца прогона и
+помнит, из каких источников собрана каждая часть выпуска.
+
+*The same issue goes out to separate Telegram channels in other languages,
+each with its own voice. The foreign-language text is written **from the
+original source material**, not translated from the Russian issue: a
+chain of English → Russian → English accumulates errors. The Russian issue
+serves only as a **plan** — what counts as an event, what has already been
+aired, and in what order — while facts, names and wording come from the
+source. Configure in `news-channels.json` (see `channels.example.json`).*
+
+## Голоса / Voices
+
+Голоса клонируются локально (Fish Speech) по короткому эталону. Как
+выбрать запись, как её почистить, как задать темп и промежутки между
+словами — в отдельном описании: **[VOICES.md](VOICES.md)**. Там же
+инструмент `obrezat-pauzy.py`, который укорачивает слишком длинные
+промежутки между словами: без него синтез иногда делает паузы под
+секунду посреди фразы, а для диктора это неприемлемо.
+
+*Voices are cloned locally from a short reference sample. How to pick,
+clean and pace a reference — see **[VOICES.md](VOICES.md)**, along with
+`obrezat-pauzy.py`, which trims over-long gaps between words.*
+
 ## Что нужно для запуска / Requirements
 
 Это **референсная реализация под самостоятельный хостинг** — она рассчитана
